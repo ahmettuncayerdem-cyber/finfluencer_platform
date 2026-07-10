@@ -1,0 +1,458 @@
+# =============================================================================
+# Finfluencer Research Platform v2.1 — Study Settings
+# =============================================================================
+#
+# PURPOSE
+#   This file drives the entire pipeline. Every parameter that a researcher
+#   might reasonably want to change without editing source code lives here.
+#
+# VALIDATION
+#   Pydantic-validated at startup by `core.config.load_settings()`. Malformed
+#   values raise a verbose, human-readable error BEFORE any data touches disk.
+#
+# REPRODUCIBILITY CONTRACT
+#   1. Every parameter is captured in provenance.json on each pipeline run.
+#   2. External model revisions are pinned to exact commit hashes; unpinned
+#      references are refused when replication.stage == "publication".
+#   3. This file's SHA-256 is recorded in every output's manifest.
+#   4. Secrets do NOT belong here; they live in a gitignored .env file
+#      (see .env.example).
+#
+# CONFIGURATION PRECEDENCE (highest first)
+#   1. CLI overrides:   --override study.root_seed=99
+#   2. Environment:     FINFLUENCER_STUDY__ROOT_SEED=99
+#   3. This YAML file
+#   4. Pydantic model defaults in core/contracts.py
+#
+# EDITING GUIDANCE
+#   - Do NOT introduce new top-level keys without updating the Pydantic
+#     schema in core/contracts.py; unknown keys are rejected in strict mode.
+#   - Prefer commenting out over deleting: it preserves intent for diffs.
+#   - For non-committed local experimentation, use environment overrides
+#     rather than editing this file.
+#
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# STUDY METADATA
+# -----------------------------------------------------------------------------
+study:
+  # Machine-readable slug. Lower-case, ASCII, underscores only.
+  # Appears in file names: e.g., "outputs/auto/tables/{study.name}_H1_sentiment.xlsx".
+  name: "finfluencer_tr_2025"
+
+  # Semantic version of THIS STUDY (not the platform). Increment when
+  # you make a substantive change to how the study runs (new analyst,
+  # different window, altered dictionaries).
+  version: "1.0.0"
+
+  # Root seed. All randomness — numpy, torch, UMAP, HDBSCAN, comment
+  # subsampling, permutation tests — derives deterministically from this
+  # single number via core.reproducibility.derive_seed().
+  # Never change mid-study.
+  root_seed: 42
+
+  # Free-text description for the provenance record and replication README.
+  # The manuscript's abstract-length summary is a good starting point.
+  description: >
+    Comparative study of retail investor sentiment and discourse across
+    four Turkish financial YouTube analyst communities during calendar 2025.
+    Target journal: Borsa Istanbul Review. Pre-registered protocol.
+
+  # Observation window (ISO 8601 dates, inclusive on both ends).
+  # A common window across analysts is required for cross-analyst comparability
+  # (Methods §3.2.2). Do not extend beyond the pre-registration date.
+  observation_window:
+    start: "2025-01-01"
+    end:   "2025-12-31"
+
+
+# -----------------------------------------------------------------------------
+# PROVIDERS (language, platform)
+# -----------------------------------------------------------------------------
+# Selects which registered provider implementations handle language-specific
+# and platform-specific operations. For MVP-B: Turkish + YouTube.
+#
+# The values below are STRINGS validated against the runtime provider
+# registry (finfluencer.core.registry). Any string matching pattern
+# `^[a-z][a-z0-9_]*$` is accepted at the schema level; existence is
+# checked when the pipeline resolves the provider.
+#
+# Roadmap (v2.2 plugin installs — NO core code changes required):
+#   Languages: "english", "german", "arabic"
+#   Platforms: "x", "reddit", "tiktok"
+# -----------------------------------------------------------------------------
+providers:
+  # Registered LanguageProvider key. MVP-B: "turkish".
+  language: "turkish"
+
+  # Registered PlatformProvider key. MVP-B: "youtube".
+  platform: "youtube"
+
+
+# -----------------------------------------------------------------------------
+# COLLECTION (Methods §3.2)
+# -----------------------------------------------------------------------------
+collection:
+  # Video sampling is CENSUS-based within the observation window (Methods
+  # §3.2.3). If an analyst's eligible video count exceeds this ceiling,
+  # month-stratified systematic random sampling reduces to this number
+  # while preserving temporal balance.
+  max_videos_per_analyst: 100
+
+  # Per-video cap on retained top-level comments (Methods §3.2.4). When
+  # exceeded, a simple random sample of this size is drawn from the
+  # eligible pool. Prevents single high-comment videos from dominating.
+  max_comments_per_video: 200
+
+  # Per-commenter per-video cap. If one hashed identifier posts more than
+  # this many comments on a single video, a random subset of this size is
+  # kept. Guards against bot-like posting artefacts (Methods §3.3).
+  max_comments_per_user_per_video: 5
+
+  # Videos with duration <= this (seconds) are classified as Shorts and
+  # excluded from the eligible pool. YouTube's own Shorts convention.
+  shorts_max_duration_sec: 60
+
+  # Case-insensitive keyword substrings that flag promotional or sponsored
+  # content. Applied to title AND description. Extend as needed after
+  # auditing a sample; over-inclusive is safer than under-inclusive here.
+  promo_keywords:
+    - "reklam"
+    - "sponsor"
+    - "sponsorlu"
+    - "indirim kodu"
+    - "kampanya"
+    - "hediye çekilişi"
+
+  # YouTube Data API v3 quota accounting. See collect/quota.py.
+  quota:
+    # Google's default daily quota. Request an increase in the Cloud console
+    # if larger studies require it.
+    daily_units: 10000
+
+    # Reserve this many units at end-of-day so an in-flight call can complete
+    # cleanly before quota exhaustion halts the run.
+    safety_margin: 500
+
+
+# -----------------------------------------------------------------------------
+# PREPROCESSING (Methods §3.3)
+# -----------------------------------------------------------------------------
+preprocessing:
+  # Minimum token count AFTER preprocessing (stopword removal, punctuation
+  # stripping). Comments below this are excluded from the analytical corpus
+  # but retained (with `keep=false`) in raw data for auditability.
+  min_tokens: 3
+
+  # Near-duplicate threshold on Jaccard token similarity between comment
+  # pairs. First occurrence retained; later duplicates excluded. Guards
+  # against copy-paste spam and bot repetition.
+  jaccard_dup_threshold: 0.90
+
+  # Optional path to a stopword-augmentation file (relative to project root).
+  # The base Turkish stopword list lives in providers/language/turkish.py;
+  # this augments it for the specific corpus. Null = use provider defaults.
+  stopwords_augment_path: null
+
+
+# -----------------------------------------------------------------------------
+# SENTIMENT CLASSIFICATION (Methods §3.4)
+# -----------------------------------------------------------------------------
+sentiment:
+  # Primary classifier. A binary Turkish BERT model fine-tuned on general-
+  # domain review text. Well-known limitation for financial discourse
+  # (Methods §3.4.1); mitigated by the target-of-affect coordinate below.
+  primary_model:
+    name: "savasy/bert-base-turkish-sentiment-cased"
+
+    # Pin to an exact commit SHA on the HuggingFace Hub. The model card page
+    # → "Files and versions" tab → click a commit → copy the SHA. Without
+    # this pin, silent model updates would silently change sentiment scores
+    # between runs — an invisible reproducibility failure.
+    # Publication-stage runs REFUSE to start if this reads as placeholder.
+    revision: "REPLACE_WITH_HF_COMMIT_SHA"
+
+    # Truncation length. 512 is BERT's architectural max. Turkish YouTube
+    # comments rarely exceed 200 tokens; 512 wastes no compute due to
+    # dynamic padding.
+    max_length: 512
+
+  # Inference batch size. Increase on GPU (256–512 typical); decrease on
+  # RAM-limited CPU. Larger batches faster but higher peak memory.
+  batch_size: 64
+
+  # Comments with predicted probability in [lo, hi] are labelled
+  # "pseudo-neutral" for sensitivity analysis. See Methods §3.4.1.
+  # NOT a substitute for a proper ternary classifier; a diagnostic device.
+  pseudo_neutral_band: [0.40, 0.60]
+
+  # Target-of-affect classifier (Methods §3.4.2). Distinguishes
+  # analyst-directed from market-directed sentiment. This is the study's
+  # key methodological contribution.
+  target_of_affect:
+    # If false, the target dimension is not classified and downstream
+    # analyses fall back to the confounded aggregate sentiment.
+    enabled: true
+
+    # Base model that receives a two-head classification layer during
+    # fine-tuning on the 400-comment manually annotated subsample.
+    base_model: "dbmdz/bert-base-turkish-cased"
+    base_revision: "REPLACE_WITH_HF_COMMIT_SHA"
+
+    # Both heads share the base encoder.
+    heads: ["polarity", "target"]
+
+    # Target labels: analyst / market / both / neither (Methods §3.4.2).
+    target_labels: ["analyst", "market", "both", "neither"]
+
+    # Populated by Phase 6 training pipeline; then persisted to cache/models/.
+    fine_tune_checkpoint: null
+
+
+# -----------------------------------------------------------------------------
+# TOPIC MODELLING (Methods §3.5)
+# -----------------------------------------------------------------------------
+topics:
+  # Multilingual SentenceTransformer for comment embeddings. MiniLM chosen
+  # for its ratio of quality to speed on modest hardware.
+  embedding_model:
+    name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    revision: "REPLACE_WITH_HF_COMMIT_SHA"
+
+  # UMAP parameters (Grootendorst 2022 recommended defaults).
+  # Reducing n_neighbors captures more local structure; increasing captures
+  # more global structure. n_components = 5 is BERTopic's sweet spot.
+  umap:
+    n_neighbors: 15
+    n_components: 5
+    min_dist: 0.0
+    metric: "cosine"
+    low_memory: true
+
+  # HDBSCAN parameters. min_cluster_size drives topic granularity —
+  # smaller values yield more, smaller topics; larger values yield fewer,
+  # larger topics. 15 is a compromise validated on the pilot corpus.
+  hdbscan:
+    min_cluster_size: 15
+    min_samples: 5
+    metric: "euclidean"
+    cluster_selection_method: "eom"
+
+  # Both configurations fitted per Methods §3.5.
+  # - within_analyst: preserves community-idiosyncratic themes.
+  # - pooled: shared topic space for cross-analyst comparison.
+  configurations:
+    within_analyst: true
+    pooled: true
+
+  # Cosine-similarity threshold in c-TF-IDF space above which topics are
+  # hierarchically merged. Combats over-segmentation of near-synonyms
+  # (e.g. multiple "teşekkürler" variants in the pilot corpus).
+  merge_similarity_threshold: 0.90
+
+  # Reallocate outlier topic (-1) documents using BERTopic's c-TF-IDF strategy.
+  # Both outlier-inclusive and outlier-reduced solutions are reported.
+  reduce_outliers: true
+
+  # Quality metrics reported alongside the topic solution.
+  quality_metrics: ["c_v", "topic_diversity"]
+
+
+# -----------------------------------------------------------------------------
+# DICTIONARIES (Methods §3.6)
+# -----------------------------------------------------------------------------
+# Three families, six categories total. Files under config/dictionaries/
+# are editable YAML; changing a dictionary invalidates dictionary-dependent
+# checkpoints on next run (contract-hash-based invalidation).
+# -----------------------------------------------------------------------------
+dictionaries:
+  files:
+    trust:                "config/dictionaries/trust.yaml"
+    investment_behaviour: "config/dictionaries/investment_behaviour.yaml"
+    risk_uncertainty:     "config/dictionaries/risk_uncertainty.yaml"
+
+  # "token" = whole-word match after tokenisation (precise for Turkish
+  # morphology). "substring" = infix match (permissive; use with care).
+  match_mode: "token"
+
+  # Case folding uses the language provider's Turkish-aware .lower(),
+  # which correctly handles İ/I → i/ı.
+  case_fold: true
+
+
+# -----------------------------------------------------------------------------
+# STATISTICAL INFERENCE (Methods §3.9)
+# -----------------------------------------------------------------------------
+statistics:
+  # Significance level for individual tests.
+  alpha: 0.05
+
+  # Within-family (per-hypothesis) Bonferroni correction across pairwise
+  # post-hoc contrasts.
+  bonferroni_within_family: true
+
+  # Study-wide correction across the five pre-registered primary tests
+  # (H1–H5). Guards against undisclosed analytical flexibility.
+  fdr_method: "benjamini_hochberg"
+
+  # Permutation count for the analyst-label placebo test in the
+  # robustness suite (Methods §3.10 check 5).
+  permutations: 5000
+
+  # Post-hoc pairwise procedure for Kruskal–Wallis-style tests.
+  post_hoc_pairwise: "dunn"
+
+
+# -----------------------------------------------------------------------------
+# BEHAVIOURAL FINANCE INDICES (Module B, Phase 5)
+# -----------------------------------------------------------------------------
+# Reserved for Phase 5. Parameters live here so the pipeline is one-config.
+# Modules that consume these are not built until Phase 5; unused before then.
+# -----------------------------------------------------------------------------
+behavioural_indices:
+  # Rolling window (days) for panic-spike detection over the fear index.
+  panic_rolling_window: 7
+
+  # Herding proxy: within-video sentiment variance below this indicates
+  # consensus (herding). Above indicates disagreement.
+  herding_variance_threshold: 0.10
+
+  # Loss aversion signal conditions loss-vocabulary frequency on the sign
+  # of the prior N-week BIST return. N = this value.
+  loss_aversion_lag_weeks: 1
+
+
+# -----------------------------------------------------------------------------
+# OUTPUT FORMATS AND PATHS
+# -----------------------------------------------------------------------------
+# All paths are relative to the project root. `outputs/auto/` is regenerated
+# on every run; `outputs/manuscript/` is human-edited and NEVER overwritten.
+# -----------------------------------------------------------------------------
+output:
+  paths:
+    # Ingested data (append-only JSONL then Parquet).
+    data_raw:       "data/raw"
+    data_interim:   "data/interim"
+    data_processed: "data/processed"
+    data_external:  "data/external"
+
+    # Runtime.
+    cache:          "cache"
+    logs:           "logs"
+    checkpoints:    "checkpoints"
+
+    # Auto-regenerated on every pipeline run.
+    tables:         "outputs/auto/tables"
+    figures:        "outputs/auto/figures"
+    appendices:     "outputs/auto/appendices"
+    reports:        "outputs/auto/reports"
+
+    # Human-edited prose that survives runs. The Publication Engine
+    # NEVER writes here.
+    manuscript:     "outputs/manuscript"
+
+    # Replication package staging area (Phase 8 Module L).
+    replication:    "outputs/replication"
+
+  # Figure output specifications (Methods §Module 11).
+  figures:
+    dpi: 300
+    formats: ["svg", "png"]
+    style: "publication"       # matches a named style in visualize/style.py
+    colourblind_safe: true
+
+  # Table output specifications.
+  tables:
+    formats: ["xlsx", "csv"]
+    decimal_places: 3
+    thousands_separator: false
+
+
+# -----------------------------------------------------------------------------
+# ETHICS-IN-DESIGN (Module K)
+# -----------------------------------------------------------------------------
+ethics:
+  # Raw comment cache purge policy. 0 = never purge. Recommended 30–90 for
+  # university ethics protocols.
+  retention_days: 90
+
+  # Enable sensitive-topic detector against config/dictionaries/sensitive.yaml
+  # if that file exists. Warnings surface in the Quality Report.
+  sensitive_topic_detection: true
+
+  # When true, refuses to run publication-stage pipelines with a dirty
+  # git working tree. Ensures the code state that produced the outputs
+  # is exactly what is committed.
+  strict_reproducibility: false
+
+
+# -----------------------------------------------------------------------------
+# REPLICATION PACKAGE (Module L)
+# -----------------------------------------------------------------------------
+replication:
+  # Study stage. Controls how strict reproducibility checks are.
+  #   "exploratory" — permissive; used during initial development.
+  #   "internal"    — pre-registration checks pass; suitable for internal review.
+  #   "submission"  — replication package builds; suitable for manuscript submission.
+  #   "publication" — all revisions pinned; strict git checks; DOI-minting.
+  stage: "exploratory"
+
+  # Deposit target for Module L publish step. "zenodo" | "local".
+  target: "zenodo"
+
+  zenodo:
+    # Replace with your Zenodo community slug (or leave null for none).
+    community: null
+
+    # Use Zenodo Sandbox during development. Set false ONLY for the
+    # final publication-stage upload that mints a real DOI.
+    sandbox: true
+
+    # ISO date or null. Non-null requests an embargo on the deposit.
+    embargo_until: null
+
+  # Include pinned model weight archives in the Tier 1 replication package.
+  # Recommended: true for long-term archival deposits.
+  include_model_weights: true
+
+  # Tier 2 (raw comment text under restricted access) target.
+  restricted_tier:
+    provider: null             # e.g. "dataverse". null disables Tier 2.
+
+
+# -----------------------------------------------------------------------------
+# LLM INTEGRATION (Module J) — OPTIONAL. DEFAULT OFF.
+# -----------------------------------------------------------------------------
+# The core analytical pipeline (collection, preprocessing, sentiment, topics,
+# statistics) NEVER depends on an external LLM. This section only activates
+# optional validation and annotation-assistance features.
+# -----------------------------------------------------------------------------
+llm:
+  # Master switch. When false, the LLM sub-package is not loaded even if
+  # openai/anthropic packages are installed. DEFAULT is false to guarantee
+  # offline reproducibility.
+  enabled: false
+
+  # Backend: "openai" | "anthropic" | "offline_stub".
+  # offline_stub returns deterministic canned responses; used in tests.
+  provider: "offline_stub"
+
+  # LLM outputs are ADVISORY only. Every LLM-produced label must be
+  # human-verified before entering downstream analysis. This flag is
+  # enforced by the annotation module.
+  require_human_validation: true
+
+  # Model identifier passed to the provider. Ignored for offline_stub.
+  model: null
+
+  # Version tag for the prompt registry (config/prompts/). Prompts are
+  # versioned artefacts; changing a prompt requires a version bump so
+  # the change is auditable in provenance.json.
+  prompt_version: "v1.0.0"
+
+
+# =============================================================================
+# END OF settings.yaml
+# =============================================================================
