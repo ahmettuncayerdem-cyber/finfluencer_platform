@@ -70,7 +70,7 @@ packages = [{ include = "finfluencer", from = "src" }]
 #
 
 [tool.poetry.dependencies]
-python = ">=3.11,<3.14"
+python = ">=3.11,<3.15"
 
 # ---- Configuration and validation --------------------------------------------
 # pydantic v2 provides schema validation and is the backbone of core.contracts.

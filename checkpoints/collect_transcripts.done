@@ -1,0 +1,11 @@
+{
+  "config_slice_sha256": "ae1558081728a502988c83b714bd8f59b6c365df2f98fe8a7e5786d614cce3fe",
+  "extras": {
+    "n_disabled": 0,
+    "n_error": 308,
+    "n_missing": 0,
+    "n_ok": 0,
+    "n_total": 308
+  },
+  "stage": "collect_transcripts"
+}

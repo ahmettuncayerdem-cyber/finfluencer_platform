@@ -56,11 +56,11 @@ analysts:
 
     # Fill in the verified handle (@handle). If uncertain, look up the
     # channel via youtube.com and copy the @handle from the URL bar.
-    handle: "@REPLACE_WITH_VERIFIED_HANDLE"
+    handle: "@KanalFinans"
 
     # Permanent channel ID (UC…, 24 characters). Optional but recommended:
     # once populated, this survives future handle renames.
-    channel_id: null
+    channel_id: "UCGBytjbMXiF1nbe6HD7iORQ"
 
     expertise_class: "technical_macro"
 
@@ -82,7 +82,7 @@ analysts:
   - key: "yesilada"
     display_name: "Atilla Yeşilada"
 
-    handle: "@REPLACE_WITH_VERIFIED_HANDLE"
+    handle: "@atillayesilada"
     channel_id: null
 
     expertise_class: "macro_political"
@@ -104,7 +104,7 @@ analysts:
   - key: "basaran"
     display_name: "Mert Başaran"
 
-    handle: "@REPLACE_WITH_VERIFIED_HANDLE"
+    handle: "@selcukgecer"
     channel_id: null
 
     expertise_class: "long_horizon"
@@ -122,10 +122,10 @@ analysts:
   # ---------------------------------------------------------------------------
   # 4. Murat Sağman
   # ---------------------------------------------------------------------------
-  - key: "sagman"
-    display_name: "Murat Sağman"
+  - key: "gecer"
+    display_name: "Selçuk Geçer"
 
-    handle: "@REPLACE_WITH_VERIFIED_HANDLE"
+    handle: "@selcukgecer"
     channel_id: null
 
     expertise_class: "equity_portfolio"

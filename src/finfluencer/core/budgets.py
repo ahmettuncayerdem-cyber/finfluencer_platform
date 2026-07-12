@@ -27,7 +27,6 @@ intercept malloc or HTTP calls.
 from __future__ import annotations
 
 import os
-import resource
 from types import TracebackType
 from typing import Literal
 
@@ -52,15 +51,53 @@ BudgetMode = Literal["raise", "warn", "off"]
 def _current_memory_gb() -> float:
     """Return the current process's resident set size in gigabytes.
 
-    Uses :func:`resource.getrusage` which is portable across POSIX
-    systems. On Linux the value is in KiB; on macOS in bytes. We
-    normalise to gigabytes.
+    Cross-platform implementation with graceful fallback chain:
+    1. Prefer ``psutil.Process().memory_info().rss`` — works identically
+       on Linux, macOS, and Windows.
+    2. Fall back to POSIX ``resource.getrusage`` when psutil is not
+       installed (preserves the pre-Batch-4 behaviour on POSIX).
+    3. Return ``0.0`` when neither is available (Windows without psutil)
+       — memory tracking becomes a no-op rather than an ``AttributeError``.
+
+    The zero fallback is safe: MemoryBudget compares ``current > max_gb``,
+    so a zero reading means "budget never triggers" — a warning is
+    logged once so operators know memory telemetry is off.
     """
-    ru = resource.getrusage(resource.RUSAGE_SELF)
-    # macOS reports bytes; Linux reports kilobytes.
-    if os.uname().sysname == "Darwin":
-        return ru.ru_maxrss / (1024**3)
-    return ru.ru_maxrss / (1024**2)
+    # 1. Preferred path: psutil (cross-platform, accurate RSS)
+    try:
+        import psutil
+        return psutil.Process().memory_info().rss / (1024**3)
+    except ImportError:
+        pass
+    except Exception:  # noqa: BLE001
+        # psutil imported but process access failed (very rare)
+        pass
+
+    # 2. Fallback: POSIX resource module
+    try:
+        import resource as _resource  # POSIX-only; ImportError on Windows
+        ru = _resource.getrusage(_resource.RUSAGE_SELF)
+        # macOS reports bytes; Linux reports kilobytes.
+        if hasattr(os, "uname") and os.uname().sysname == "Darwin":
+            return ru.ru_maxrss / (1024**3)
+        return ru.ru_maxrss / (1024**2)
+    except ImportError:
+        pass
+
+    # 3. Last resort: no memory tracking available.
+    # Warn once per process so this is not silent.
+    global _MEMORY_TRACKING_WARNED
+    if not _MEMORY_TRACKING_WARNED:
+        _log.warning(
+            "memory_tracking_unavailable",
+            reason="neither psutil nor POSIX resource module available",
+            action="memory_budget_disabled_returning_zero",
+        )
+        _MEMORY_TRACKING_WARNED = True
+    return 0.0
+
+
+_MEMORY_TRACKING_WARNED: bool = False
 
 
 class MemoryBudget:

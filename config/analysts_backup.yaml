@@ -1,0 +1,145 @@
+# =============================================================================
+# Finfluencer Research Platform v2.1 — Analyst Roster
+# =============================================================================
+#
+# PURPOSE
+#   Machine-readable roster of the four Turkish financial YouTube analysts
+#   whose comment communities form the study's four subcorpora.
+#
+# VALIDATION AND HANDLE STABILITY
+#   YouTube handles (@handle) can be renamed by their owners. Channel IDs
+#   (UC...) are permanent. Both fields are supported:
+#     - handle: primary lookup key; used if channel_id is null
+#     - channel_id: permanent fallback; overrides handle if provided
+#   Best practice: fill in BOTH once and record verified_at.
+#
+# ETHICAL FRAMING
+#   The four analysts are treated as named public figures whose channels
+#   constitute public financial commentary. The study makes NO evaluative
+#   claim about the accuracy or quality of any analyst's advice. Inter-analyst
+#   findings are reported in a strictly comparative, non-hierarchical frame.
+#   Individual commenters are anonymised at ingest (Methods §3.11).
+#
+# EDITING GUIDANCE
+#   - Adding a new analyst is a v2.2 patch: add an entry; do not change schema.
+#   - Removing an analyst mid-study invalidates comparative statistics —
+#     re-run all cross-analyst analyses from a clean checkpoint.
+#   - The 'pilot' flag identifies the analyst used for MVP-B reproduction.
+#     Exactly one analyst must have pilot=true (enforced in schema).
+#
+# EXPERTISE CLASSES (controlled vocabulary)
+#   - "technical_macro"     : technical analysis + macroeconomic commentary
+#   - "macro_political"     : macroeconomics + political economy
+#   - "long_horizon"        : buy-and-hold / long-term investing
+#   - "equity_portfolio"    : equity selection + portfolio management
+#   Extending this vocabulary requires updating core/contracts.py schema.
+#
+# CROSS-PLATFORM NOTE
+#   All analysts in this file use the platform declared in
+#   settings.yaml → providers.platform (currently "youtube").
+#   Multi-platform analyst mappings are a v2.2 concern when needed.
+#
+# =============================================================================
+
+
+analysts:
+
+  # ---------------------------------------------------------------------------
+  # 1. Tunç Şatıroğlu — PILOT ANALYST
+  # ---------------------------------------------------------------------------
+  # Pilot corpus (n=767 comments) was analysed at study version 0.9. This
+  # analyst's results form the MVP-B milestone: the earliest reproducible
+  # end-to-end study output.
+  # ---------------------------------------------------------------------------
+  - key: "satiroglu"
+    display_name: "Tunç Şatıroğlu"
+
+    # Fill in the verified handle (@handle). If uncertain, look up the
+    # channel via youtube.com and copy the @handle from the URL bar.
+    handle: "@KanalFinans"
+
+    # Permanent channel ID (UC…, 24 characters). Optional but recommended:
+    # once populated, this survives future handle renames.
+    channel_id: "UCGBytjbMXiF1nbe6HD7iORQ"
+
+    expertise_class: "technical_macro"
+
+    expertise_description: >
+      Daily market commentary combining technical analysis of major
+      instruments (equities, foreign exchange, precious metals) with
+      macroeconomic context. Warm, guidance-oriented presentation.
+
+    pilot: true
+
+    # Optional metadata; useful for provenance but not required for the pipeline.
+    channel_url: null                  # e.g. "https://www.youtube.com/@handle"
+    verified_at: null                  # ISO date of last handle verification
+
+
+  # ---------------------------------------------------------------------------
+  # 2. Atilla Yeşilada
+  # ---------------------------------------------------------------------------
+  - key: "yesilada"
+    display_name: "Atilla Yeşilada"
+
+    handle: "@ATILLAYEŞİLADA"
+    channel_id: "UCNwINNDsWUlL1vYqrlErg-g"
+
+    expertise_class: "macro_political"
+
+    expertise_description: >
+      Macroeconomic and political-economy analysis of Turkish and global
+      markets. Analytical tone; typically higher expertise register with
+      emphasis on policy, geopolitics, and monetary conditions.
+
+    pilot: false
+
+    channel_url: null
+    verified_at: null
+
+
+  # ---------------------------------------------------------------------------
+  # 3. Mert Başaran
+  # ---------------------------------------------------------------------------
+  - key: "basaran"
+    display_name: "Mert Başaran"
+
+    handle: "@REPLACE_WITH_VERIFIED_HANDLE"
+    channel_id: null
+
+    expertise_class: "long_horizon"
+
+    expertise_description: >
+      Long-horizon investing perspective; buy-and-hold reasoning; portfolio
+      construction and asset allocation discussion aimed at retail investors.
+
+    pilot: false
+
+    channel_url: null
+    verified_at: null
+
+
+  # ---------------------------------------------------------------------------
+  # 4. Murat Sağman
+  # ---------------------------------------------------------------------------
+  - key: "sagman"
+    display_name: "Murat Sağman"
+
+    handle: "@REPLACE_WITH_VERIFIED_HANDLE"
+    channel_id: null
+
+    expertise_class: "equity_portfolio"
+
+    expertise_description: >
+      Equity markets and portfolio management analysis; stock selection,
+      valuation, and market-timing discussion.
+
+    pilot: false
+
+    channel_url: null
+    verified_at: null
+
+
+# =============================================================================
+# END OF analysts.yaml
+# =============================================================================

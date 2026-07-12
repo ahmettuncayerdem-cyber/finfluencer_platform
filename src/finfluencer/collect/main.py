@@ -1,0 +1,286 @@
+"""
+finfluencer.collect.main
+=========================
+
+Unified CLI entry for the 4-stage data collection pipeline.
+
+Stages (in dependency order):
+    channels    → data/raw/channels.parquet
+    videos      → data/raw/videos.parquet
+    comments    → data/raw/comments.parquet
+    transcripts → data/raw/transcripts.parquet
+
+Usage
+-----
+    # Full pipeline, all analysts:
+    python -m finfluencer.collect.main run
+
+    # Individual stage:
+    python -m finfluencer.collect.main run --stage videos
+
+    # Custom config paths:
+    python -m finfluencer.collect.main run \\
+        --settings config/settings.yaml \\
+        --analysts config/analysts.yaml
+
+    # Dry run (validate config, don't hit the API):
+    python -m finfluencer.collect.main run --dry-run
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+import typer
+
+from finfluencer.collect.channels import collect_channels
+from finfluencer.collect.comments import collect_comments
+from finfluencer.collect.quota import (
+    create_youtube_tracker,
+    load_persisted_tracker,
+    persist_tracker,
+)
+from finfluencer.collect.transcripts import collect_transcripts
+from finfluencer.collect.videos import collect_videos
+from finfluencer.core.checkpoint import CheckpointManager
+from finfluencer.core.config import LoadedConfig, load_settings
+from finfluencer.core.logging import configure, get_logger
+from finfluencer.core.registry import instantiate
+from finfluencer.preprocess.pipeline import build_default_preprocessor, run_preprocessing
+
+# Trigger provider registration
+import finfluencer.providers.language  # noqa: F401
+import finfluencer.providers.platform  # noqa: F401
+
+
+_log = get_logger(__name__)
+
+_VALID_STAGES = ("channels", "videos", "comments", "preprocess", "transcripts", "all")
+
+
+app = typer.Typer(add_completion=False, help="Finfluencer data-collection CLI.")
+
+
+# -----------------------------------------------------------------------------
+# Python API — the shape callers should prefer
+# -----------------------------------------------------------------------------
+
+
+def build_provider_and_quota(cfg: LoadedConfig) -> tuple[Any, Any]:
+    """Instantiate the platform provider with a persistent QuotaTracker."""
+    quota_state_path = (
+        Path(str(cfg.settings.output.paths.checkpoints)) / "quota_state.json"
+    )
+    quota = load_persisted_tracker(
+        cfg.settings.collection.quota,
+        quota_state_path,
+    )
+    provider = instantiate(
+        "platform",
+        cfg.settings.providers.platform,
+        quota_tracker=quota,
+        shorts_max_duration_sec=cfg.settings.collection.shorts_max_duration_sec,
+        promo_keywords=cfg.settings.collection.promo_keywords,
+    )
+    return provider, quota
+
+
+def build_checkpoint_manager(cfg: LoadedConfig) -> CheckpointManager:
+    return CheckpointManager(
+        checkpoint_root=cfg.settings.output.paths.checkpoints,
+        cache_root=cfg.settings.output.paths.cache,
+    )
+
+
+def run_pipeline(
+    cfg: LoadedConfig,
+    *,
+    stage: str = "all",
+    dry_run: bool = False,
+) -> dict[str, pd.DataFrame]:
+    """Run one or all data-collection stages.
+
+    Parameters
+    ----------
+    cfg
+        Result of :func:`finfluencer.core.config.load_settings`.
+    stage
+        One of ``"channels"``, ``"videos"``, ``"comments"``,
+        ``"transcripts"``, or ``"all"`` (default).
+    dry_run
+        If True, validate config + construct provider but do not
+        execute any stage.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        Mapping stage_name → resulting frame. Empty on dry-run.
+    """
+    if stage not in _VALID_STAGES:
+        raise ValueError(f"stage must be one of {_VALID_STAGES}, got {stage!r}")
+
+    checkpoint = build_checkpoint_manager(cfg)
+    provider, quota = build_provider_and_quota(cfg)
+
+    if dry_run:
+        _log.info("dry_run_ok",
+                  stage=stage,
+                  quota_remaining=quota.remaining,
+                  analysts=[a.key for a in cfg.roster.analysts])
+        return {}
+
+    results: dict[str, pd.DataFrame] = {}
+    data_raw = Path(str(cfg.settings.output.paths.data_raw))
+    data_raw.mkdir(parents=True, exist_ok=True)
+
+    salt = os.environ.get("ANON_SALT", "")
+
+    # Stage 1: channels
+    channels_path = data_raw / "channels.parquet"
+    if stage in ("channels", "all"):
+        _log.info("stage_start", stage="channels")
+        df = collect_channels(
+            cfg.settings, cfg.roster, provider, checkpoint,
+            output_path=channels_path,
+        )
+        results["channels"] = df
+        _log.info("stage_done", stage="channels", n_rows=len(df))
+
+    # Stage 2: videos (needs channels)
+    videos_path = data_raw / "videos.parquet"
+    if stage in ("videos", "all"):
+        if not channels_path.exists():
+            raise FileNotFoundError(
+                f"channels.parquet not found at {channels_path}; "
+                f"run --stage channels first",
+            )
+        channels_df = pd.read_parquet(channels_path)
+        _log.info("stage_start", stage="videos")
+        df = collect_videos(
+            cfg.settings, channels_df, provider, checkpoint,
+            output_path=videos_path,
+        )
+        results["videos"] = df
+        _log.info("stage_done", stage="videos", n_rows=len(df))
+
+    # Stage 3: comments (needs videos)
+    comments_path = data_raw / "comments.parquet"
+    if stage in ("comments", "all"):
+        if not videos_path.exists():
+            raise FileNotFoundError(
+                f"videos.parquet not found at {videos_path}; "
+                f"run --stage videos first",
+            )
+        videos_df = pd.read_parquet(videos_path)
+        _log.info("stage_start", stage="comments")
+        df = collect_comments(
+            cfg.settings, videos_df, provider, checkpoint,
+            output_path=comments_path,
+            salt=salt or None,
+        )
+        results["comments"] = df
+        _log.info("stage_done", stage="comments", n_rows=len(df))
+
+    # Stage 3b: preprocess (needs comments)
+    if stage in ("preprocess", "all"):
+        if not comments_path.exists():
+            raise FileNotFoundError(
+                f"comments.parquet not found at {comments_path}; "
+                f"run --stage comments first",
+            )
+        _log.info("stage_start", stage="preprocess")
+        language = instantiate("language", cfg.settings.providers.language)
+        preprocessor = build_default_preprocessor(language)
+        df = run_preprocessing(
+            cfg.settings, comments_path, checkpoint,
+            preprocessor=preprocessor,
+        )
+        results["preprocess"] = df
+        _log.info("stage_done", stage="preprocess", n_rows=len(df))
+
+    # Stage 4: transcripts (needs videos, does NOT need the provider)
+    transcripts_path = data_raw / "transcripts.parquet"
+    if stage in ("transcripts", "all"):
+        if not videos_path.exists():
+            raise FileNotFoundError(
+                f"videos.parquet not found at {videos_path}; "
+                f"run --stage videos first",
+            )
+        videos_df = pd.read_parquet(videos_path)
+        _log.info("stage_start", stage="transcripts")
+        df = collect_transcripts(
+            cfg.settings, videos_df, checkpoint,
+            output_path=transcripts_path,
+        )
+        results["transcripts"] = df
+        _log.info("stage_done", stage="transcripts", n_rows=len(df))
+
+    # Persist quota state so tomorrow's run starts from the current usage.
+    quota_state_path = (
+        Path(str(cfg.settings.output.paths.checkpoints)) / "quota_state.json"
+    )
+    persist_tracker(quota, quota_state_path)
+    _log.info("pipeline_complete", stages_run=list(results.keys()),
+              quota_snapshot=quota.snapshot())
+    return results
+
+
+# -----------------------------------------------------------------------------
+# CLI wrapper (Typer)
+# -----------------------------------------------------------------------------
+
+
+@app.command()
+def run(
+    settings: Path = typer.Option(
+        Path("config/settings.yaml"), "--settings", "-s",
+        help="Path to settings.yaml",
+    ),
+    analysts: Path = typer.Option(
+        Path("config/analysts.yaml"), "--analysts", "-a",
+        help="Path to analysts.yaml",
+    ),
+    stage: str = typer.Option(
+        "all", "--stage",
+        help=f"Stage to run: one of {_VALID_STAGES}",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run",
+        help="Validate config + provider without executing any stage",
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v",
+        help="Human-readable console logging (default: JSON to stderr)",
+    ),
+) -> None:
+    """Run the data-collection pipeline."""
+    if stage not in _VALID_STAGES:
+        typer.echo(
+            f"Error: --stage must be one of {_VALID_STAGES}, got {stage!r}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    cfg = load_settings(settings, analysts)
+    log_dir = Path(str(cfg.settings.output.paths.logs))
+    log_dir.mkdir(parents=True, exist_ok=True)
+    configure(log_dir=log_dir, verbose=verbose)
+
+    try:
+        run_pipeline(cfg, stage=stage, dry_run=dry_run)
+    except FileNotFoundError as e:
+        typer.echo(f"Pipeline aborted: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+def main() -> None:
+    """Module entry point (``python -m finfluencer.collect.main``)."""
+    app()
+
+
+if __name__ == "__main__":
+    main()

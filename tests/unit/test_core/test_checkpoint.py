@@ -57,7 +57,9 @@ class TestCache:
     def test_cache_path_is_sharded(self, tmp_checkpoint_root, tmp_cache_root):
         cm = CheckpointManager(tmp_checkpoint_root, tmp_cache_root)
         p = cm.cache_path("emb", "abcd1234", ".npy")
-        assert "/ab/abcd1234.npy" in str(p)
+        # Assert via Path.parts so the check is platform-independent
+        # (Windows uses \, POSIX uses /).
+        assert p.parts[-2:] == ("ab", "abcd1234.npy")
         assert p.parent.exists()
 
     def test_cache_has(self, tmp_checkpoint_root, tmp_cache_root):

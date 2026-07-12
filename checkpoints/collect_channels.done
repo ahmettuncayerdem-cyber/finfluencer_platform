@@ -1,0 +1,7 @@
+{
+  "config_slice_sha256": "3f3c0e2a3f382533f3e35323da5cb058ad2b7f4aa79112a51d92d00959fead62",
+  "extras": {
+    "n_resolved": 4
+  },
+  "stage": "collect_channels"
+}

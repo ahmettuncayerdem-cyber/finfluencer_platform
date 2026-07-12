@@ -1,0 +1,10 @@
+{
+  "daily_units": 10000,
+  "effective_ceiling": 9500,
+  "quota_day": "2026-07-12",
+  "remaining": 9492,
+  "safety_margin": 500,
+  "service": "youtube_data_api_v3",
+  "used_units": 508,
+  "written_at_utc": "2026-07-12T11:28:12.205452+00:00"
+}
