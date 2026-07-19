@@ -38,3 +38,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Ad-hoc / transient (not part of any release deliverable)
+.~lock.*#
+/err.txt
