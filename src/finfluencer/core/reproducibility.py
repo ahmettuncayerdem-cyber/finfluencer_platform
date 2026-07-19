@@ -21,11 +21,14 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import platform
+import secrets
 import sys
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from finfluencer.core.checkpoint import CheckpointManager
 from finfluencer.core.config import LoadedConfig
 from finfluencer.core.exceptions import (
     DirtyWorkingTreeError,
@@ -183,6 +186,44 @@ def enforce_clean_tree(git_state: dict[str, Any]) -> None:
 
 
 # =============================================================================
+# Run manifest — identity and lifecycle status
+# =============================================================================
+
+
+class RunStatus(str, Enum):
+    """Lifecycle status of one pipeline run's manifest.
+
+    A manifest is written once when a run starts (``running``) and then
+    updated *in place*, by ``run_id`` — never as a new file per
+    transition — to ``success`` or ``failed`` when the run ends. A
+    failed run is a first-class, valid outcome: callers must still
+    write a manifest for it (Architecture v1.0 §10), not skip it.
+    """
+
+    running = "RUNNING"
+    success = "SUCCESS"
+    failed = "FAILED"
+
+
+def generate_run_id() -> str:
+    """Generate a human-readable, sortable, filename-safe run identifier.
+
+    Format: ``<compact UTC timestamp>_<6 hex char suffix>``, e.g.
+    ``20260718T192541Z_9f3a2b``. No colons, so it is safe as a path
+    component on Windows as well as POSIX (this project already has to
+    care about that — see the torch/pyarrow DLL-order note in
+    :mod:`finfluencer.collect.main`). The timestamp alone is not
+    guaranteed unique (two runs within the same second); the random
+    suffix is what guarantees it in practice for this platform's
+    current single-process usage pattern — a full collision-resistant
+    scheme is not warranted at this scale.
+    """
+    ts = now_utc().strftime("%Y%m%dT%H%M%SZ")
+    suffix = secrets.token_hex(3)
+    return f"{ts}_{suffix}"
+
+
+# =============================================================================
 # Provenance record
 # =============================================================================
 
@@ -191,6 +232,10 @@ def build_provenance(
     config: LoadedConfig,
     *,
     stage: str = "run",
+    run_id: str | None = None,
+    status: RunStatus = RunStatus.success,
+    checkpoint: CheckpointManager | None = None,
+    error: dict[str, str] | None = None,
     extras: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the provenance dictionary for a pipeline run.
@@ -201,11 +246,39 @@ def build_provenance(
         Result of :func:`finfluencer.core.config.load_settings`.
     stage
         Name of the pipeline stage this provenance covers.
+    run_id
+        Stable identifier for this execution. Auto-generated via
+        :func:`generate_run_id` if omitted. Passing the *same* run_id
+        across multiple calls (e.g. ``RUNNING`` at start, then
+        ``SUCCESS``/``FAILED`` at end) is how a caller updates one
+        manifest file in place across a run's lifecycle rather than
+        creating a new file per transition — see
+        :func:`finfluencer.collect.main.run_pipeline`.
+    status
+        Lifecycle status of this manifest snapshot. Defaults to
+        :attr:`RunStatus.success` for backward compatibility with the
+        original single-shot call shape; real pipeline callers pass
+        this explicitly at each lifecycle transition.
+    checkpoint
+        If given, folds every currently-on-disk Tier-2 stage marker
+        (:meth:`finfluencer.core.checkpoint.CheckpointManager.all_markers`)
+        into the manifest under a new ``"checkpoints"`` key, stitching
+        per-stage ``config_slice_sha256`` values into one run-level
+        record (Architecture v1.0 §10). Omitted entirely — no
+        ``"checkpoints"`` key at all — if not given, matching this
+        function's original behavior exactly.
+    error
+        For ``status=RunStatus.failed``: ``{"type": ..., "message":
+        ...}`` describing the exception that ended the run. Ignored for
+        any other status.
     extras
-        Additional key/value pairs to embed (e.g. run duration).
+        Additional key/value pairs to embed (e.g. run duration,
+        ``stages_run``).
     """
     settings_dict = config.settings.model_dump(mode="json")
-    return {
+    record: dict[str, Any] = {
+        "run_id": run_id or generate_run_id(),
+        "status": status.value,
         "timestamp_utc": now_utc().isoformat(),
         "stage": stage,
         "study": {
@@ -222,6 +295,11 @@ def build_provenance(
         "git": get_git_state(),
         "extras": extras or {},
     }
+    if checkpoint is not None:
+        record["checkpoints"] = checkpoint.all_markers()
+    if status == RunStatus.failed and error is not None:
+        record["error"] = error
+    return record
 
 
 def write_provenance(provenance: dict[str, Any], path: Path | str) -> None:
@@ -258,6 +336,8 @@ __all__ = [
     "verify_environment",
     "get_git_state",
     "enforce_clean_tree",
+    "RunStatus",
+    "generate_run_id",
     "build_provenance",
     "write_provenance",
     "enforce_publication_reproducibility",

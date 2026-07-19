@@ -17,6 +17,16 @@ Tier 3 — Content-addressed artefacts (cache)
     Heavy computations (embeddings, model outputs) live under
     ``cache/<content_hash>/…``. Reproducible re-runs load from cache
     instead of recomputing.
+
+Concurrency
+-----------
+This manager assumes a single writer per ``checkpoint_root`` at a time.
+Tier-1 JSONL appends and the Tier-2 ``.done``-marker read/write are not
+file-locked; running two ``finfluencer run`` invocations concurrently
+against the same checkpoint directory is unsupported and can race (both
+may see a stale marker as "should run" before either writes it, or
+appends may interleave). Use a separate ``checkpoint_root``/``cache_root``
+per concurrent run if you need to parallelise.
 """
 
 from __future__ import annotations
@@ -167,6 +177,29 @@ class CheckpointManager:
     def cache_has(self, kind: str, content_hash: str, suffix: str = "") -> bool:
         """Check whether a cache artefact already exists."""
         return self.cache_path(kind, content_hash, suffix).exists()
+
+    # -- Introspection: all markers (run-manifest support) -----------------
+
+    def all_markers(self) -> dict[str, dict[str, Any]]:
+        """Return every Tier-2 stage marker currently on disk.
+
+        Reads every ``*.done`` file under ``checkpoint_root`` and returns
+        ``{stage_name: marker_payload}``. Used by the run-manifest system
+        (:mod:`finfluencer.core.reproducibility`) to fold per-stage
+        ``config_slice_sha256`` values into one run-level record; never
+        used by :meth:`should_run`/:meth:`mark_done` themselves, which
+        stay purely per-stage. A corrupted marker is skipped rather than
+        raised, so one bad marker file cannot prevent the manifest from
+        describing everything else that completed successfully.
+        """
+        markers: dict[str, dict[str, Any]] = {}
+        for marker_path in sorted(self.checkpoint_root.glob("*.done")):
+            stage_name = marker_path.stem
+            try:
+                markers[stage_name] = read_json(marker_path)
+            except Exception:  # noqa: BLE001
+                continue
+        return markers
 
     # -- Convenience: raise if invalidated --------------------------------
 
