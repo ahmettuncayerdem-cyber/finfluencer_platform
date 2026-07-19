@@ -46,8 +46,25 @@ from finfluencer.utils.hashing import hash_file, validate_salt
 
 _PLACEHOLDER_RE = re.compile(r"^REPLACE_WITH_[A-Z_]+$")
 
+#: Revision resolved at runtime when a ``ModelReference.revision`` is still a
+#: placeholder (pre-publication stages only). "main" is HuggingFace Hub's
+#: default branch - a deliberate, explicit fallback, never a silent None.
+UNPINNED_REVISION_FALLBACK: str = "main"
+
 _ENV_PREFIX = "FINFLUENCER_"
 _ENV_SEP = "__"
+
+
+def is_placeholder_revision(value: str) -> bool:
+    """Return True iff ``value`` is an unpinned-revision placeholder.
+
+    Single source of truth for the ``REPLACE_WITH_*`` convention, shared
+    by :func:`_enforce_stage_policy` (publication-stage gate) and any
+    provider-instantiation call site that needs to resolve a config
+    revision to something an actual model loader can use (see
+    :mod:`finfluencer.collect.main`).
+    """
+    return bool(_PLACEHOLDER_RE.match(value))
 
 
 # =============================================================================
@@ -79,8 +96,8 @@ def _load_yaml(path: Path) -> Any:
 def _coerce_env_value(value: str) -> Any:
     """Coerce an env-var string to a JSON-typed value.
 
-    ``"true"``/``"false"`` → bool, digit-only → int, decimal → float,
-    quoted-list → list, else str.
+    ``"true"``/``"false"`` -> bool, digit-only -> int, decimal -> float,
+    quoted-list -> list, else str.
     """
     v = value.strip()
     if v.lower() in {"true", "false"}:
@@ -130,13 +147,13 @@ def _iter_revision_fields(settings: Settings) -> list[tuple[str, str]]:
 
 
 def _enforce_stage_policy(settings: Settings) -> None:
-    """Enforce publication-stage strictness (Methods §3.11)."""
+    """Enforce publication-stage strictness (Methods Section 3.11)."""
     if settings.replication.stage != ReplicationStage.publication:
         return
     unpinned = [
         (path, val)
         for path, val in _iter_revision_fields(settings)
-        if _PLACEHOLDER_RE.match(val)
+        if is_placeholder_revision(val)
     ]
     if unpinned:
         raise UnpinnedRevisionError(
@@ -254,7 +271,7 @@ def load_settings(
     # Salt validation (relies on environment)
     if validate_secrets:
         anon_salt = os.environ.get("ANON_SALT", "")
-        if anon_salt:  # empty means not yet configured — dev mode
+        if anon_salt:  # empty means not yet configured - dev mode
             strict = settings.replication.stage in (
                 ReplicationStage.submission,
                 ReplicationStage.publication,
@@ -269,4 +286,7 @@ def load_settings(
     )
 
 
-__all__ = ["LoadedConfig", "load_settings"]
+__all__ = [
+    "LoadedConfig", "load_settings",
+    "is_placeholder_revision", "UNPINNED_REVISION_FALLBACK",
+]
