@@ -65,6 +65,7 @@ from finfluencer.collect.transcripts import collect_transcripts
 from finfluencer.collect.videos import collect_videos
 from finfluencer.core.checkpoint import CheckpointManager
 from finfluencer.core.config import LoadedConfig, load_settings
+from finfluencer.core.exceptions import FinfluencerError
 from finfluencer.core.logging import configure, get_logger
 from finfluencer.core.registry import instantiate
 from finfluencer.preprocess.pipeline import build_default_preprocessor, run_preprocessing
@@ -282,14 +283,18 @@ def run(
         )
         raise typer.Exit(code=2)
 
-    cfg = load_settings(settings, analysts)
-    log_dir = Path(str(cfg.settings.output.paths.logs))
-    log_dir.mkdir(parents=True, exist_ok=True)
-    configure(log_dir=log_dir, verbose=verbose)
-
     try:
+        cfg = load_settings(settings, analysts)
+        log_dir = Path(str(cfg.settings.output.paths.logs))
+        log_dir.mkdir(parents=True, exist_ok=True)
+        configure(log_dir=log_dir, verbose=verbose)
+
         run_pipeline(cfg, stage=stage, dry_run=dry_run)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, FinfluencerError) as e:
+        # Known, typed failure modes (bad config, missing upstream stage
+        # output, quota/auth/collection errors, ...) get a clean one-line
+        # message. Anything else is an unexpected error and is left to
+        # propagate as a full traceback so it isn't accidentally hidden.
         typer.echo(f"Pipeline aborted: {e}", err=True)
         raise typer.Exit(code=1)
 
