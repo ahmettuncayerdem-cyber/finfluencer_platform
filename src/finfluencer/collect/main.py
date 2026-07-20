@@ -76,6 +76,7 @@ from finfluencer.core.registry import instantiate
 from finfluencer.embeddings.pipeline import run_embeddings
 from finfluencer.preprocess.pipeline import build_default_preprocessor, run_preprocessing
 from finfluencer.sentiment.pipeline import run_sentiment
+from finfluencer.topics.pipeline import run_topics
 
 # Trigger provider registration
 import finfluencer.providers.language  # noqa: F401
@@ -88,7 +89,7 @@ _log = get_logger(__name__)
 
 _VALID_STAGES = (
     "channels", "videos", "comments", "preprocess", "embeddings", "sentiment",
-    "transcripts", "all",
+    "topics", "transcripts", "all",
 )
 
 #: Stages that talk to the YouTube API and therefore need a platform
@@ -303,6 +304,29 @@ def run_pipeline(
         )
         results["sentiment"] = df
         _log.info("stage_done", stage="sentiment", n_rows=len(df))
+
+    # Stage 3e: topics (needs comments text_clean + embeddings_index.parquet)
+    if stage in ("topics", "all"):
+        if not comments_path.exists():
+            raise FileNotFoundError(
+                f"comments.parquet not found at {comments_path}; "
+                f"run --stage comments first",
+            )
+        data_processed = Path(str(cfg.settings.output.paths.data_processed))
+        embeddings_index_path = data_processed / "embeddings_index.parquet"
+        if not embeddings_index_path.exists():
+            raise FileNotFoundError(
+                f"embeddings_index.parquet not found at {embeddings_index_path}; "
+                f"run --stage embeddings first",
+            )
+        _log.info("stage_start", stage="topics")
+        data_processed.mkdir(parents=True, exist_ok=True)
+        df = run_topics(
+            cfg.settings, comments_path, embeddings_index_path, checkpoint,
+            output_path=data_processed / "topics.parquet",
+        )
+        results["topics"] = df
+        _log.info("stage_done", stage="topics", n_rows=len(df))
 
     # Stage 4: transcripts (needs videos, does NOT need the provider)
     transcripts_path = data_raw / "transcripts.parquet"
