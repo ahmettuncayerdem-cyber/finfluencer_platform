@@ -29,6 +29,23 @@ Usage
 
 from __future__ import annotations
 
+# NOTE (2026-07-14): torch must be imported before pandas/pyarrow on this
+# platform. pyarrow (imported transitively via pandas below, and directly
+# by finfluencer.utils.io) registers its own bundled-DLL search path on
+# Windows; if that happens first, torch's own DLL loader
+# (torch/__init__.py::_load_dll_libraries) subsequently fails with
+# "OSError: [WinError 1114] ... torch/lib/c10.dll" the first time any
+# downstream stage (sentiment/embeddings/topics) tries to use it - even
+# though `import torch` alone, in a fresh process, works fine. Importing
+# torch first avoids the conflict entirely. Best-effort: environments
+# without torch (e.g. a lightweight collection-only install) still work,
+# since torch is only a hard dependency of the ML stages, not collection.
+try:
+    import torch  # noqa: F401
+except ImportError:
+    pass
+
+
 import os
 import sys
 from pathlib import Path
