@@ -146,6 +146,12 @@ gitpython = "^3.1"
 openai    = { version = "^1.10", optional = true }
 anthropic = { version = "^0.18", optional = true }
 
+# Reserved for the market-integration extension (finfluencer.market /
+# finfluencer.providers.market). Never installed by default; the NLP
+# pipeline has no dependency on it. yfinance is the only new package
+# required -- the TCMB EVDS provider reuses the existing httpx dependency.
+yfinance = { version = "^0.2", optional = true }
+
 
 # ==============================================================================
 # Extras (opt-in feature bundles)
@@ -157,6 +163,7 @@ anthropic = { version = "^0.18", optional = true }
 
 [tool.poetry.extras]
 llm = ["openai", "anthropic"]
+market = ["yfinance"]
 
 
 # ==============================================================================
