@@ -73,6 +73,12 @@ from finfluencer.core.config import (
 from finfluencer.core.exceptions import FinfluencerError
 from finfluencer.core.logging import configure, get_logger
 from finfluencer.core.registry import instantiate
+from finfluencer.core.reproducibility import (
+    RunStatus,
+    build_provenance,
+    generate_run_id,
+    write_provenance,
+)
 from finfluencer.analysis.topic_sentiment import run_topic_sentiment
 from finfluencer.embeddings.pipeline import run_embeddings
 from finfluencer.preprocess.pipeline import build_default_preprocessor, run_preprocessing
@@ -133,6 +139,43 @@ def build_checkpoint_manager(cfg: LoadedConfig) -> CheckpointManager:
     )
 
 
+def _run_manifest_path(cfg: LoadedConfig, run_id: str) -> Path:
+    return (
+        Path(str(cfg.settings.output.paths.checkpoints))
+        / "run_manifests" / f"{run_id}.json"
+    )
+
+
+def _write_manifest_safe(
+    cfg: LoadedConfig,
+    checkpoint: CheckpointManager,
+    run_id: str,
+    *,
+    stage: str,
+    status: RunStatus,
+    error: dict[str, str] | None = None,
+    extras: dict[str, Any] | None = None,
+) -> None:
+    """Best-effort run-manifest write.
+
+    Must never raise. A failure in the manifest system (Architecture
+    v1.0 §10) must never turn an otherwise-successful pipeline run into
+    a failure, and must never mask the *real* exception of an
+    already-failing run — it only logs a warning and moves on.
+    """
+    try:
+        provenance = build_provenance(
+            cfg, stage=stage, run_id=run_id, status=status,
+            checkpoint=checkpoint, error=error, extras=extras,
+        )
+        write_provenance(provenance, _run_manifest_path(cfg, run_id))
+    except Exception as exc:  # noqa: BLE001
+        _log.warning(
+            "run_manifest_write_failed",
+            run_id=run_id, status=status.value, reason=type(exc).__name__,
+        )
+
+
 def run_pipeline(
     cfg: LoadedConfig,
     *,
@@ -158,6 +201,17 @@ def run_pipeline(
     -------
     dict[str, pd.DataFrame]
         Mapping stage_name → resulting frame. Empty on dry-run.
+
+    Run manifest
+    ------------
+    Every non-dry-run invocation writes a run manifest (Architecture
+    v1.0 §10) to ``<checkpoints>/run_manifests/<run_id>.json``: written
+    as ``RUNNING`` before any stage executes, then updated in place to
+    ``SUCCESS`` or ``FAILED`` when the run ends — a failed run still
+    leaves behind a valid manifest describing what happened. Manifest
+    writing is best-effort and can never itself cause this function to
+    raise or to raise a different exception than the one the pipeline
+    itself produced.
     """
     if stage not in _VALID_STAGES:
         raise ValueError(f"stage must be one of {_VALID_STAGES}, got {stage!r}")
@@ -176,243 +230,259 @@ def run_pipeline(
                   analysts=[a.key for a in cfg.roster.analysts])
         return {}
 
+    run_id = generate_run_id()
+    _write_manifest_safe(cfg, checkpoint, run_id, stage=stage, status=RunStatus.running)
+
     results: dict[str, pd.DataFrame] = {}
-    data_raw = Path(str(cfg.settings.output.paths.data_raw))
-    data_raw.mkdir(parents=True, exist_ok=True)
+    try:
+        data_raw = Path(str(cfg.settings.output.paths.data_raw))
+        data_raw.mkdir(parents=True, exist_ok=True)
 
-    salt = os.environ.get("ANON_SALT", "")
+        salt = os.environ.get("ANON_SALT", "")
 
-    # Stage 1: channels
-    channels_path = data_raw / "channels.parquet"
-    if stage in ("channels", "all"):
-        _log.info("stage_start", stage="channels")
-        df = collect_channels(
-            cfg.settings, cfg.roster, provider, checkpoint,
-            output_path=channels_path,
-        )
-        results["channels"] = df
-        _log.info("stage_done", stage="channels", n_rows=len(df))
+        # Stage 1: channels
+        channels_path = data_raw / "channels.parquet"
+        if stage in ("channels", "all"):
+            _log.info("stage_start", stage="channels")
+            df = collect_channels(
+                cfg.settings, cfg.roster, provider, checkpoint,
+                output_path=channels_path,
+            )
+            results["channels"] = df
+            _log.info("stage_done", stage="channels", n_rows=len(df))
 
-    # Stage 2: videos (needs channels)
-    videos_path = data_raw / "videos.parquet"
-    if stage in ("videos", "all"):
-        if not channels_path.exists():
-            raise FileNotFoundError(
-                f"channels.parquet not found at {channels_path}; "
-                f"run --stage channels first",
+        # Stage 2: videos (needs channels)
+        videos_path = data_raw / "videos.parquet"
+        if stage in ("videos", "all"):
+            if not channels_path.exists():
+                raise FileNotFoundError(
+                    f"channels.parquet not found at {channels_path}; "
+                    f"run --stage channels first",
+                )
+            channels_df = pd.read_parquet(channels_path)
+            _log.info("stage_start", stage="videos")
+            df = collect_videos(
+                cfg.settings, channels_df, provider, checkpoint,
+                output_path=videos_path,
             )
-        channels_df = pd.read_parquet(channels_path)
-        _log.info("stage_start", stage="videos")
-        df = collect_videos(
-            cfg.settings, channels_df, provider, checkpoint,
-            output_path=videos_path,
-        )
-        results["videos"] = df
-        _log.info("stage_done", stage="videos", n_rows=len(df))
+            results["videos"] = df
+            _log.info("stage_done", stage="videos", n_rows=len(df))
 
-    # Stage 3: comments (needs videos)
-    comments_path = data_raw / "comments.parquet"
-    if stage in ("comments", "all"):
-        if not videos_path.exists():
-            raise FileNotFoundError(
-                f"videos.parquet not found at {videos_path}; "
-                f"run --stage videos first",
+        # Stage 3: comments (needs videos)
+        comments_path = data_raw / "comments.parquet"
+        if stage in ("comments", "all"):
+            if not videos_path.exists():
+                raise FileNotFoundError(
+                    f"videos.parquet not found at {videos_path}; "
+                    f"run --stage videos first",
+                )
+            videos_df = pd.read_parquet(videos_path)
+            _log.info("stage_start", stage="comments")
+            df = collect_comments(
+                cfg.settings, videos_df, provider, checkpoint,
+                output_path=comments_path,
+                salt=salt or None,
             )
-        videos_df = pd.read_parquet(videos_path)
-        _log.info("stage_start", stage="comments")
-        df = collect_comments(
-            cfg.settings, videos_df, provider, checkpoint,
-            output_path=comments_path,
-            salt=salt or None,
-        )
-        results["comments"] = df
-        _log.info("stage_done", stage="comments", n_rows=len(df))
+            results["comments"] = df
+            _log.info("stage_done", stage="comments", n_rows=len(df))
 
-    # Stage 3b: preprocess (needs comments)
-    if stage in ("preprocess", "all"):
-        if not comments_path.exists():
-            raise FileNotFoundError(
-                f"comments.parquet not found at {comments_path}; "
-                f"run --stage comments first",
+        # Stage 3b: preprocess (needs comments)
+        if stage in ("preprocess", "all"):
+            if not comments_path.exists():
+                raise FileNotFoundError(
+                    f"comments.parquet not found at {comments_path}; "
+                    f"run --stage comments first",
+                )
+            _log.info("stage_start", stage="preprocess")
+            language = instantiate("language", cfg.settings.providers.language)
+            preprocessor = build_default_preprocessor(language)
+            df = run_preprocessing(
+                cfg.settings, comments_path, checkpoint,
+                preprocessor=preprocessor,
             )
-        _log.info("stage_start", stage="preprocess")
-        language = instantiate("language", cfg.settings.providers.language)
-        preprocessor = build_default_preprocessor(language)
-        df = run_preprocessing(
-            cfg.settings, comments_path, checkpoint,
-            preprocessor=preprocessor,
-        )
-        results["preprocess"] = df
-        _log.info("stage_done", stage="preprocess", n_rows=len(df))
+            results["preprocess"] = df
+            _log.info("stage_done", stage="preprocess", n_rows=len(df))
 
-    # Stage 3c: embeddings (needs comments with text_clean populated)
-    if stage in ("embeddings", "all"):
-        if not comments_path.exists():
-            raise FileNotFoundError(
-                f"comments.parquet not found at {comments_path}; "
-                f"run --stage comments first",
+        # Stage 3c: embeddings (needs comments with text_clean populated)
+        if stage in ("embeddings", "all"):
+            if not comments_path.exists():
+                raise FileNotFoundError(
+                    f"comments.parquet not found at {comments_path}; "
+                    f"run --stage comments first",
+                )
+            _log.info("stage_start", stage="embeddings")
+            data_processed = Path(str(cfg.settings.output.paths.data_processed))
+            data_processed.mkdir(parents=True, exist_ok=True)
+            embedding_model = cfg.settings.topics.embedding_model
+            # Publication-stage pin enforcement already ran inside load_settings()
+            # against the raw config value; here we resolve a still-placeholder
+            # revision to an actually loadable ref so pre-publication runs work.
+            effective_revision = (
+                UNPINNED_REVISION_FALLBACK
+                if is_placeholder_revision(embedding_model.revision)
+                else embedding_model.revision
             )
-        _log.info("stage_start", stage="embeddings")
-        data_processed = Path(str(cfg.settings.output.paths.data_processed))
-        data_processed.mkdir(parents=True, exist_ok=True)
-        embedding_model = cfg.settings.topics.embedding_model
-        # Publication-stage pin enforcement already ran inside load_settings()
-        # against the raw config value; here we resolve a still-placeholder
-        # revision to an actually loadable ref so pre-publication runs work.
-        effective_revision = (
-            UNPINNED_REVISION_FALLBACK
-            if is_placeholder_revision(embedding_model.revision)
-            else embedding_model.revision
-        )
-        embedding_provider = instantiate(
-            "embedding", "sentence_transformer",
-            model_name=embedding_model.name,
-            revision=effective_revision,
-        )
-        df = run_embeddings(
-            cfg.settings, comments_path, checkpoint,
-            provider=embedding_provider,
-            output_path=data_processed / "embeddings_index.parquet",
-        )
-        results["embeddings"] = df
-        _log.info("stage_done", stage="embeddings", n_rows=len(df))
+            embedding_provider = instantiate(
+                "embedding", "sentence_transformer",
+                model_name=embedding_model.name,
+                revision=effective_revision,
+            )
+            df = run_embeddings(
+                cfg.settings, comments_path, checkpoint,
+                provider=embedding_provider,
+                output_path=data_processed / "embeddings_index.parquet",
+            )
+            results["embeddings"] = df
+            _log.info("stage_done", stage="embeddings", n_rows=len(df))
 
-    # Stage 3d: sentiment (needs comments with text_clean populated)
-    if stage in ("sentiment", "all"):
-        if not comments_path.exists():
-            raise FileNotFoundError(
-                f"comments.parquet not found at {comments_path}; "
-                f"run --stage comments first",
+        # Stage 3d: sentiment (needs comments with text_clean populated)
+        if stage in ("sentiment", "all"):
+            if not comments_path.exists():
+                raise FileNotFoundError(
+                    f"comments.parquet not found at {comments_path}; "
+                    f"run --stage comments first",
+                )
+            _log.info("stage_start", stage="sentiment")
+            data_processed = Path(str(cfg.settings.output.paths.data_processed))
+            data_processed.mkdir(parents=True, exist_ok=True)
+            primary_model = cfg.settings.sentiment.primary_model
+            effective_revision = (
+                UNPINNED_REVISION_FALLBACK
+                if is_placeholder_revision(primary_model.revision)
+                else primary_model.revision
             )
-        _log.info("stage_start", stage="sentiment")
-        data_processed = Path(str(cfg.settings.output.paths.data_processed))
-        data_processed.mkdir(parents=True, exist_ok=True)
-        primary_model = cfg.settings.sentiment.primary_model
-        effective_revision = (
-            UNPINNED_REVISION_FALLBACK
-            if is_placeholder_revision(primary_model.revision)
-            else primary_model.revision
-        )
-        sentiment_provider = instantiate(
-            "sentiment", "transformer",
-            model_name=primary_model.name,
-            revision=effective_revision,
-            batch_size=cfg.settings.sentiment.batch_size,
-            max_length=primary_model.max_length or 512,
-        )
-        df = run_sentiment(
-            cfg.settings, comments_path, checkpoint,
-            provider=sentiment_provider,
-            output_path=data_processed / "sentiment.parquet",
-        )
-        results["sentiment"] = df
-        _log.info("stage_done", stage="sentiment", n_rows=len(df))
+            sentiment_provider = instantiate(
+                "sentiment", "transformer",
+                model_name=primary_model.name,
+                revision=effective_revision,
+                batch_size=cfg.settings.sentiment.batch_size,
+                max_length=primary_model.max_length or 512,
+            )
+            df = run_sentiment(
+                cfg.settings, comments_path, checkpoint,
+                provider=sentiment_provider,
+                output_path=data_processed / "sentiment.parquet",
+            )
+            results["sentiment"] = df
+            _log.info("stage_done", stage="sentiment", n_rows=len(df))
 
-    # Stage 3e: topics (needs comments text_clean + embeddings_index.parquet)
-    if stage in ("topics", "all"):
-        if not comments_path.exists():
-            raise FileNotFoundError(
-                f"comments.parquet not found at {comments_path}; "
-                f"run --stage comments first",
+        # Stage 3e: topics (needs comments text_clean + embeddings_index.parquet)
+        if stage in ("topics", "all"):
+            if not comments_path.exists():
+                raise FileNotFoundError(
+                    f"comments.parquet not found at {comments_path}; "
+                    f"run --stage comments first",
+                )
+            data_processed = Path(str(cfg.settings.output.paths.data_processed))
+            embeddings_index_path = data_processed / "embeddings_index.parquet"
+            if not embeddings_index_path.exists():
+                raise FileNotFoundError(
+                    f"embeddings_index.parquet not found at {embeddings_index_path}; "
+                    f"run --stage embeddings first",
+                )
+            _log.info("stage_start", stage="topics")
+            data_processed.mkdir(parents=True, exist_ok=True)
+            df = run_topics(
+                cfg.settings, comments_path, embeddings_index_path, checkpoint,
+                output_path=data_processed / "topics.parquet",
             )
-        data_processed = Path(str(cfg.settings.output.paths.data_processed))
-        embeddings_index_path = data_processed / "embeddings_index.parquet"
-        if not embeddings_index_path.exists():
-            raise FileNotFoundError(
-                f"embeddings_index.parquet not found at {embeddings_index_path}; "
-                f"run --stage embeddings first",
-            )
-        _log.info("stage_start", stage="topics")
-        data_processed.mkdir(parents=True, exist_ok=True)
-        df = run_topics(
-            cfg.settings, comments_path, embeddings_index_path, checkpoint,
-            output_path=data_processed / "topics.parquet",
-        )
-        results["topics"] = df
-        _log.info("stage_done", stage="topics", n_rows=len(df))
+            results["topics"] = df
+            _log.info("stage_done", stage="topics", n_rows=len(df))
 
-    # Stage 3f: topic_sentiment (needs topics.parquet + sentiment.parquet;
-    # cheap descriptive aggregation, no checkpointing)
-    if stage in ("topic_sentiment", "all"):
-        data_processed = Path(str(cfg.settings.output.paths.data_processed))
-        topics_out_path = data_processed / "topics.parquet"
-        sentiment_out_path = data_processed / "sentiment.parquet"
-        if not topics_out_path.exists():
-            raise FileNotFoundError(
-                f"topics.parquet not found at {topics_out_path}; "
-                f"run --stage topics first",
+        # Stage 3f: topic_sentiment (needs topics.parquet + sentiment.parquet;
+        # cheap descriptive aggregation, no checkpointing)
+        if stage in ("topic_sentiment", "all"):
+            data_processed = Path(str(cfg.settings.output.paths.data_processed))
+            topics_out_path = data_processed / "topics.parquet"
+            sentiment_out_path = data_processed / "sentiment.parquet"
+            if not topics_out_path.exists():
+                raise FileNotFoundError(
+                    f"topics.parquet not found at {topics_out_path}; "
+                    f"run --stage topics first",
+                )
+            if not sentiment_out_path.exists():
+                raise FileNotFoundError(
+                    f"sentiment.parquet not found at {sentiment_out_path}; "
+                    f"run --stage sentiment first",
+                )
+            _log.info("stage_start", stage="topic_sentiment")
+            data_processed.mkdir(parents=True, exist_ok=True)
+            df = run_topic_sentiment(
+                comments_path, topics_out_path, sentiment_out_path,
+                output_path=data_processed / "topic_sentiment.parquet",
             )
-        if not sentiment_out_path.exists():
-            raise FileNotFoundError(
-                f"sentiment.parquet not found at {sentiment_out_path}; "
-                f"run --stage sentiment first",
-            )
-        _log.info("stage_start", stage="topic_sentiment")
-        data_processed.mkdir(parents=True, exist_ok=True)
-        df = run_topic_sentiment(
-            comments_path, topics_out_path, sentiment_out_path,
-            output_path=data_processed / "topic_sentiment.parquet",
-        )
-        results["topic_sentiment"] = df
-        _log.info("stage_done", stage="topic_sentiment", n_rows=len(df))
+            results["topic_sentiment"] = df
+            _log.info("stage_done", stage="topic_sentiment", n_rows=len(df))
 
-    # Stage 3g: topic_evolution (needs comments + embeddings_index.parquet +
-    # topics.parquet; read-only view over the cached BERTopic model, never
-    # refits. CLI defaults to "pooled" - the primary cross-analyst view;
-    # within_analyst evolution is reachable via the Python API directly.)
-    if stage in ("topic_evolution", "all"):
-        if not comments_path.exists():
-            raise FileNotFoundError(
-                f"comments.parquet not found at {comments_path}; "
-                f"run --stage comments first",
+        # Stage 3g: topic_evolution (needs comments + embeddings_index.parquet +
+        # topics.parquet; read-only view over the cached BERTopic model, never
+        # refits. CLI defaults to "pooled" - the primary cross-analyst view;
+        # within_analyst evolution is reachable via the Python API directly.)
+        if stage in ("topic_evolution", "all"):
+            if not comments_path.exists():
+                raise FileNotFoundError(
+                    f"comments.parquet not found at {comments_path}; "
+                    f"run --stage comments first",
+                )
+            data_processed = Path(str(cfg.settings.output.paths.data_processed))
+            embeddings_index_path = data_processed / "embeddings_index.parquet"
+            topics_out_path = data_processed / "topics.parquet"
+            if not embeddings_index_path.exists():
+                raise FileNotFoundError(
+                    f"embeddings_index.parquet not found at {embeddings_index_path}; "
+                    f"run --stage embeddings first",
+                )
+            if not topics_out_path.exists():
+                raise FileNotFoundError(
+                    f"topics.parquet not found at {topics_out_path}; "
+                    f"run --stage topics first",
+                )
+            _log.info("stage_start", stage="topic_evolution")
+            data_processed.mkdir(parents=True, exist_ok=True)
+            df = run_topic_evolution(
+                cfg.settings, comments_path, embeddings_index_path, topics_out_path,
+                checkpoint, configuration="pooled",
+                output_path=data_processed / "topic_evolution.parquet",
             )
-        data_processed = Path(str(cfg.settings.output.paths.data_processed))
-        embeddings_index_path = data_processed / "embeddings_index.parquet"
-        topics_out_path = data_processed / "topics.parquet"
-        if not embeddings_index_path.exists():
-            raise FileNotFoundError(
-                f"embeddings_index.parquet not found at {embeddings_index_path}; "
-                f"run --stage embeddings first",
-            )
-        if not topics_out_path.exists():
-            raise FileNotFoundError(
-                f"topics.parquet not found at {topics_out_path}; "
-                f"run --stage topics first",
-            )
-        _log.info("stage_start", stage="topic_evolution")
-        data_processed.mkdir(parents=True, exist_ok=True)
-        df = run_topic_evolution(
-            cfg.settings, comments_path, embeddings_index_path, topics_out_path,
-            checkpoint, configuration="pooled",
-            output_path=data_processed / "topic_evolution.parquet",
-        )
-        results["topic_evolution"] = df
-        _log.info("stage_done", stage="topic_evolution", n_rows=len(df))
+            results["topic_evolution"] = df
+            _log.info("stage_done", stage="topic_evolution", n_rows=len(df))
 
-    # Stage 4: transcripts (needs videos, does NOT need the provider)
-    transcripts_path = data_raw / "transcripts.parquet"
-    if stage in ("transcripts", "all"):
-        if not videos_path.exists():
-            raise FileNotFoundError(
-                f"videos.parquet not found at {videos_path}; "
-                f"run --stage videos first",
+        # Stage 4: transcripts (needs videos, does NOT need the provider)
+        transcripts_path = data_raw / "transcripts.parquet"
+        if stage in ("transcripts", "all"):
+            if not videos_path.exists():
+                raise FileNotFoundError(
+                    f"videos.parquet not found at {videos_path}; "
+                    f"run --stage videos first",
+                )
+            videos_df = pd.read_parquet(videos_path)
+            _log.info("stage_start", stage="transcripts")
+            df = collect_transcripts(
+                cfg.settings, videos_df, checkpoint,
+                output_path=transcripts_path,
             )
-        videos_df = pd.read_parquet(videos_path)
-        _log.info("stage_start", stage="transcripts")
-        df = collect_transcripts(
-            cfg.settings, videos_df, checkpoint,
-            output_path=transcripts_path,
-        )
-        results["transcripts"] = df
-        _log.info("stage_done", stage="transcripts", n_rows=len(df))
+            results["transcripts"] = df
+            _log.info("stage_done", stage="transcripts", n_rows=len(df))
 
-    # Persist quota state so tomorrow's run starts from the current usage.
-    quota_state_path = (
-        Path(str(cfg.settings.output.paths.checkpoints)) / "quota_state.json"
+        # Persist quota state so tomorrow's run starts from the current usage.
+        quota_state_path = (
+            Path(str(cfg.settings.output.paths.checkpoints)) / "quota_state.json"
+        )
+        persist_tracker(quota, quota_state_path)
+        _log.info("pipeline_complete", stages_run=list(results.keys()),
+                  quota_snapshot=quota.snapshot())
+    except Exception as exc:
+        _write_manifest_safe(
+            cfg, checkpoint, run_id, stage=stage, status=RunStatus.failed,
+            error={"type": type(exc).__name__, "message": str(exc)},
+            extras={"stages_run": list(results.keys())},
+        )
+        raise
+
+    _write_manifest_safe(
+        cfg, checkpoint, run_id, stage=stage, status=RunStatus.success,
+        extras={"stages_run": list(results.keys())},
     )
-    persist_tracker(quota, quota_state_path)
-    _log.info("pipeline_complete", stages_run=list(results.keys()),
-              quota_snapshot=quota.snapshot())
     return results
 
 
