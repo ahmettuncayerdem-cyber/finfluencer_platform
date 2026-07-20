@@ -465,12 +465,26 @@ def run_pipeline(
             _log.info("stage_done", stage="transcripts", n_rows=len(df))
 
         # Persist quota state so tomorrow's run starts from the current usage.
-        quota_state_path = (
-            Path(str(cfg.settings.output.paths.checkpoints)) / "quota_state.json"
-        )
-        persist_tracker(quota, quota_state_path)
+        # Only relevant when a provider/quota was actually constructed
+        # (offline-only runs such as --stage preprocess/embeddings/sentiment skip this).
+        # Best-effort: every actual collection/processing stage above has
+        # already completed and written its output by this point, so a
+        # failure purely in saving quota bookkeeping must not turn an
+        # otherwise-successful run into a FAILED manifest (same rationale
+        # as _write_manifest_safe).
+        if quota is not None:
+            quota_state_path = (
+                Path(str(cfg.settings.output.paths.checkpoints)) / "quota_state.json"
+            )
+            try:
+                persist_tracker(quota, quota_state_path)
+            except Exception as exc:  # noqa: BLE001
+                _log.warning(
+                    "quota_state_persist_failed",
+                    reason=type(exc).__name__,
+                )
         _log.info("pipeline_complete", stages_run=list(results.keys()),
-                  quota_snapshot=quota.snapshot())
+                  quota_snapshot=quota.snapshot() if quota is not None else None)
     except Exception as exc:
         _write_manifest_safe(
             cfg, checkpoint, run_id, stage=stage, status=RunStatus.failed,
