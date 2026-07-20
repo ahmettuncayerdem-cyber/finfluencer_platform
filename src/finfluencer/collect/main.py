@@ -73,6 +73,7 @@ from finfluencer.core.config import (
 from finfluencer.core.exceptions import FinfluencerError
 from finfluencer.core.logging import configure, get_logger
 from finfluencer.core.registry import instantiate
+from finfluencer.analysis.topic_sentiment import run_topic_sentiment
 from finfluencer.embeddings.pipeline import run_embeddings
 from finfluencer.preprocess.pipeline import build_default_preprocessor, run_preprocessing
 from finfluencer.sentiment.pipeline import run_sentiment
@@ -89,7 +90,7 @@ _log = get_logger(__name__)
 
 _VALID_STAGES = (
     "channels", "videos", "comments", "preprocess", "embeddings", "sentiment",
-    "topics", "transcripts", "all",
+    "topics", "topic_sentiment", "transcripts", "all",
 )
 
 #: Stages that talk to the YouTube API and therefore need a platform
@@ -327,6 +328,31 @@ def run_pipeline(
         )
         results["topics"] = df
         _log.info("stage_done", stage="topics", n_rows=len(df))
+
+    # Stage 3f: topic_sentiment (needs topics.parquet + sentiment.parquet;
+    # cheap descriptive aggregation, no checkpointing)
+    if stage in ("topic_sentiment", "all"):
+        data_processed = Path(str(cfg.settings.output.paths.data_processed))
+        topics_out_path = data_processed / "topics.parquet"
+        sentiment_out_path = data_processed / "sentiment.parquet"
+        if not topics_out_path.exists():
+            raise FileNotFoundError(
+                f"topics.parquet not found at {topics_out_path}; "
+                f"run --stage topics first",
+            )
+        if not sentiment_out_path.exists():
+            raise FileNotFoundError(
+                f"sentiment.parquet not found at {sentiment_out_path}; "
+                f"run --stage sentiment first",
+            )
+        _log.info("stage_start", stage="topic_sentiment")
+        data_processed.mkdir(parents=True, exist_ok=True)
+        df = run_topic_sentiment(
+            comments_path, topics_out_path, sentiment_out_path,
+            output_path=data_processed / "topic_sentiment.parquet",
+        )
+        results["topic_sentiment"] = df
+        _log.info("stage_done", stage="topic_sentiment", n_rows=len(df))
 
     # Stage 4: transcripts (needs videos, does NOT need the provider)
     transcripts_path = data_raw / "transcripts.parquet"
