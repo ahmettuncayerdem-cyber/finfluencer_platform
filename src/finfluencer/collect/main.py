@@ -64,20 +64,35 @@ from finfluencer.collect.quota import (
 from finfluencer.collect.transcripts import collect_transcripts
 from finfluencer.collect.videos import collect_videos
 from finfluencer.core.checkpoint import CheckpointManager
-from finfluencer.core.config import LoadedConfig, load_settings
+from finfluencer.core.config import (
+    UNPINNED_REVISION_FALLBACK,
+    LoadedConfig,
+    is_placeholder_revision,
+    load_settings,
+)
 from finfluencer.core.exceptions import FinfluencerError
 from finfluencer.core.logging import configure, get_logger
 from finfluencer.core.registry import instantiate
+from finfluencer.embeddings.pipeline import run_embeddings
 from finfluencer.preprocess.pipeline import build_default_preprocessor, run_preprocessing
 
 # Trigger provider registration
 import finfluencer.providers.language  # noqa: F401
 import finfluencer.providers.platform  # noqa: F401
+import finfluencer.embeddings.sentence_transformer  # noqa: F401
 
 
 _log = get_logger(__name__)
 
-_VALID_STAGES = ("channels", "videos", "comments", "preprocess", "transcripts", "all")
+_VALID_STAGES = (
+    "channels", "videos", "comments", "preprocess", "embeddings",
+    "transcripts", "all",
+)
+
+#: Stages that talk to the YouTube API and therefore need a platform
+#: provider + quota tracker. preprocess/embeddings are offline
+#: NLP stages and must not require YT_API_KEY.
+_PROVIDER_STAGES = frozenset({"channels", "videos", "comments", "transcripts", "all"})
 
 
 app = typer.Typer(add_completion=False, help="Finfluencer data-collection CLI.")
@@ -142,12 +157,16 @@ def run_pipeline(
         raise ValueError(f"stage must be one of {_VALID_STAGES}, got {stage!r}")
 
     checkpoint = build_checkpoint_manager(cfg)
-    provider, quota = build_provider_and_quota(cfg)
+
+    provider: Any = None
+    quota: Any = None
+    if stage in _PROVIDER_STAGES:
+        provider, quota = build_provider_and_quota(cfg)
 
     if dry_run:
         _log.info("dry_run_ok",
                   stage=stage,
-                  quota_remaining=quota.remaining,
+                  quota_remaining=quota.remaining if quota is not None else None,
                   analysts=[a.key for a in cfg.roster.analysts])
         return {}
 
@@ -219,6 +238,38 @@ def run_pipeline(
         )
         results["preprocess"] = df
         _log.info("stage_done", stage="preprocess", n_rows=len(df))
+
+    # Stage 3c: embeddings (needs comments with text_clean populated)
+    if stage in ("embeddings", "all"):
+        if not comments_path.exists():
+            raise FileNotFoundError(
+                f"comments.parquet not found at {comments_path}; "
+                f"run --stage comments first",
+            )
+        _log.info("stage_start", stage="embeddings")
+        data_processed = Path(str(cfg.settings.output.paths.data_processed))
+        data_processed.mkdir(parents=True, exist_ok=True)
+        embedding_model = cfg.settings.topics.embedding_model
+        # Publication-stage pin enforcement already ran inside load_settings()
+        # against the raw config value; here we resolve a still-placeholder
+        # revision to an actually loadable ref so pre-publication runs work.
+        effective_revision = (
+            UNPINNED_REVISION_FALLBACK
+            if is_placeholder_revision(embedding_model.revision)
+            else embedding_model.revision
+        )
+        embedding_provider = instantiate(
+            "embedding", "sentence_transformer",
+            model_name=embedding_model.name,
+            revision=effective_revision,
+        )
+        df = run_embeddings(
+            cfg.settings, comments_path, checkpoint,
+            provider=embedding_provider,
+            output_path=data_processed / "embeddings_index.parquet",
+        )
+        results["embeddings"] = df
+        _log.info("stage_done", stage="embeddings", n_rows=len(df))
 
     # Stage 4: transcripts (needs videos, does NOT need the provider)
     transcripts_path = data_raw / "transcripts.parquet"
