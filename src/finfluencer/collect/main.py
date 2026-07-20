@@ -75,17 +75,19 @@ from finfluencer.core.logging import configure, get_logger
 from finfluencer.core.registry import instantiate
 from finfluencer.embeddings.pipeline import run_embeddings
 from finfluencer.preprocess.pipeline import build_default_preprocessor, run_preprocessing
+from finfluencer.sentiment.pipeline import run_sentiment
 
 # Trigger provider registration
 import finfluencer.providers.language  # noqa: F401
 import finfluencer.providers.platform  # noqa: F401
 import finfluencer.embeddings.sentence_transformer  # noqa: F401
+import finfluencer.sentiment.transformer_classifier  # noqa: F401
 
 
 _log = get_logger(__name__)
 
 _VALID_STAGES = (
-    "channels", "videos", "comments", "preprocess", "embeddings",
+    "channels", "videos", "comments", "preprocess", "embeddings", "sentiment",
     "transcripts", "all",
 )
 
@@ -270,6 +272,37 @@ def run_pipeline(
         )
         results["embeddings"] = df
         _log.info("stage_done", stage="embeddings", n_rows=len(df))
+
+    # Stage 3d: sentiment (needs comments with text_clean populated)
+    if stage in ("sentiment", "all"):
+        if not comments_path.exists():
+            raise FileNotFoundError(
+                f"comments.parquet not found at {comments_path}; "
+                f"run --stage comments first",
+            )
+        _log.info("stage_start", stage="sentiment")
+        data_processed = Path(str(cfg.settings.output.paths.data_processed))
+        data_processed.mkdir(parents=True, exist_ok=True)
+        primary_model = cfg.settings.sentiment.primary_model
+        effective_revision = (
+            UNPINNED_REVISION_FALLBACK
+            if is_placeholder_revision(primary_model.revision)
+            else primary_model.revision
+        )
+        sentiment_provider = instantiate(
+            "sentiment", "transformer",
+            model_name=primary_model.name,
+            revision=effective_revision,
+            batch_size=cfg.settings.sentiment.batch_size,
+            max_length=primary_model.max_length or 512,
+        )
+        df = run_sentiment(
+            cfg.settings, comments_path, checkpoint,
+            provider=sentiment_provider,
+            output_path=data_processed / "sentiment.parquet",
+        )
+        results["sentiment"] = df
+        _log.info("stage_done", stage="sentiment", n_rows=len(df))
 
     # Stage 4: transcripts (needs videos, does NOT need the provider)
     transcripts_path = data_raw / "transcripts.parquet"
