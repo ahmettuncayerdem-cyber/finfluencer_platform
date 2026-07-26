@@ -219,6 +219,11 @@ topics:
   # for its ratio of quality to speed on modest hardware.
   embedding_model:
     name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    # Placeholder convention: replace with the exact commit SHA from the
+    # model's HuggingFace "Files and versions" tab (same convention used
+    # by sentiment.primary_model.revision above; see REPRODUCIBILITY
+    # CONTRACT point 2 at the top of this file). Publication-stage runs
+    # REFUSE to start if this still reads as a placeholder.
     revision: "REPLACE_WITH_HF_COMMIT_SHA"
 
   # UMAP parameters (Grootendorst 2022 recommended defaults).
