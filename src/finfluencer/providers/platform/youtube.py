@@ -117,24 +117,19 @@ class YouTubePlatformProvider:
         except Exception as e:  # noqa: BLE001
             status = getattr(getattr(e, "resp", None), "status", None)
             msg = str(e)
-            
-            print("\n================ DEBUG ================")
-            print("STATUS:", status)
-            print("MESSAGE:", msg)
-            print("=======================================\n")
-            
+            lower_msg = msg.lower()
+
+            _log.debug("youtube_api_error", status=status, message=msg)
+
             if status == 403:
-
-                lower_msg = msg.lower()
-
                 if (
                     "commentsdisabled" in lower_msg
                     or "has disabled comments" in lower_msg
                     or "disabled comments" in lower_msg
                 ):
                     raise ResourceNotFoundError(
-                    "Comments disabled for this video",
-                    status_code=status,
+                        "Comments disabled for this video",
+                        status_code=status,
                     ) from e
                 if (
                     "quota" in lower_msg
@@ -142,20 +137,15 @@ class YouTubePlatformProvider:
                     or "quotaexceeded" in lower_msg
                 ):
                     raise QuotaExhaustedError(
-                    "YouTube API quota exhausted",
-                    status_code=status,
-                    ) from e
-                
-                raise CollectionError(
-                    msg,
-                    status_code=status,
-                ) from e
-                  
-                if "quota" in msg.lower() or "dailyLimit" in msg:
-                    raise QuotaExhaustedError(
-                        "YouTube API quota exhausted (server-side 403)",
+                        "YouTube API quota exhausted",
                         status_code=status,
                     ) from e
+                if "ratelimit" in lower_msg or "rate limit" in lower_msg:
+                    raise RateLimitError(
+                        "YouTube API rate-limited (403)", status_code=status,
+                    ) from e
+                raise CollectionError(msg, status_code=status) from e
+            if status == 429:
                 raise RateLimitError(
                     "YouTube API rate-limited (429)", status_code=status,
                 ) from e
@@ -188,6 +178,17 @@ class YouTubePlatformProvider:
                 return h.split("/channel/")[-1].split("/")[0].split("?")[0]
             if "/@" in h:
                 h = "@" + h.split("/@")[-1].split("/")[0].split("?")[0]
+            elif "/c/" in h or "/user/" in h:
+                # Legacy custom-URL / username forms are not resolvable via
+                # forHandle (that API only accepts @handles); resolving them
+                # would need a different lookup path. Fail clearly instead
+                # of silently treating the raw URL as a garbage handle.
+                raise ResourceNotFoundError(
+                    f"Unsupported YouTube URL format (legacy /c/ or /user/ "
+                    f"custom URL): {handle_or_id!r}. Use the channel's "
+                    f"@handle or /channel/UC... URL instead.",
+                    handle=handle_or_id,
+                )
 
         # Direct UC... ID
         if h.startswith("UC") and len(h) == 24:
@@ -402,7 +403,17 @@ class YouTubePlatformProvider:
             self._spend_quota("commentThreads_list")
 
             for thread in resp.get("items") or []:
-                top = thread["snippet"]["topLevelComment"]["snippet"]
+                top = (
+                    thread.get("snippet", {})
+                    .get("topLevelComment", {})
+                    .get("snippet")
+                )
+                if top is None:
+                    # Malformed/unexpected shape for this one record; skip
+                    # it rather than let a single bad item abort the run.
+                    _log.warning("comment_thread_malformed", video_id=video_id,
+                                 thread_id=thread.get("id"))
+                    continue
                 published = top.get("publishedAt", "")
                 if not published:
                     continue
