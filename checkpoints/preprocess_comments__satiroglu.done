@@ -1,8 +1,0 @@
-{
-  "config_slice_sha256": "8058dfbeaa31376fb8ef9a08b88f2308734e1749364681b98d405f84b8143eaf",
-  "extras": {
-    "n_in": 16883,
-    "n_kept": 8153
-  },
-  "stage": "preprocess_comments__satiroglu"
-}

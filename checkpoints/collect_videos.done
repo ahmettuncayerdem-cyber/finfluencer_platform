@@ -1,7 +1,0 @@
-{
-  "config_slice_sha256": "4688264f2e253436bf319e824ca706e9d9f9724fc578c955d2d496ffac5c61f5",
-  "extras": {
-    "n_videos": 973
-  },
-  "stage": "collect_videos"
-}
