@@ -1,0 +1,15 @@
+# Normalize all text files to LF in the repository. Git converts to the
+# platform's native line ending on checkout per core.autocrlf, but the
+# blob stored in git history is always LF. This prevents CRLF/LF
+# full-file diff noise on Windows clients (observed on this project
+# with test_market_providers.py and collect/comments.py).
+* text=auto eol=lf
+
+# Explicit binary types: never treated as text, never line-ending-converted.
+*.parquet binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.svg binary
+*.xlsx binary
+*.pyc binary
