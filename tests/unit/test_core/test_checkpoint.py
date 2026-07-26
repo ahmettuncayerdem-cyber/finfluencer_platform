@@ -75,6 +75,31 @@ class TestCache:
             cm.cache_path("emb", "")
 
 
+class TestAllMarkers:
+    def test_empty_when_no_markers(self, tmp_checkpoint_root, tmp_cache_root):
+        cm = CheckpointManager(tmp_checkpoint_root, tmp_cache_root)
+        assert cm.all_markers() == {}
+
+    def test_returns_all_stage_payloads(self, tmp_checkpoint_root, tmp_cache_root):
+        cm = CheckpointManager(tmp_checkpoint_root, tmp_cache_root)
+        cm.mark_done("channels", {"k": 1})
+        cm.mark_done("videos", {"k": 2}, extras={"n_rows": 10})
+        markers = cm.all_markers()
+        assert set(markers) == {"channels", "videos"}
+        assert markers["videos"]["extras"] == {"n_rows": 10}
+        assert "config_slice_sha256" in markers["channels"]
+
+    def test_corrupted_marker_is_skipped_not_raised(self, tmp_checkpoint_root, tmp_cache_root):
+        cm = CheckpointManager(tmp_checkpoint_root, tmp_cache_root)
+        cm.mark_done("channels", {"k": 1})
+        bad = cm._marker_path("videos")
+        bad.parent.mkdir(parents=True, exist_ok=True)
+        bad.write_text("not-json-{{{")
+        # Must not raise, and must still return the good marker.
+        markers = cm.all_markers()
+        assert set(markers) == {"channels"}
+
+
 class TestRequireDone:
     def test_raises_when_not_done(self, tmp_checkpoint_root, tmp_cache_root):
         cm = CheckpointManager(tmp_checkpoint_root, tmp_cache_root)

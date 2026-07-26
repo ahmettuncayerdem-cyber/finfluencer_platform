@@ -68,8 +68,25 @@ class TestQuotaTracker:
         assert snap["remaining"] == 80
 
     @pytest.mark.parametrize("daily,margin", [
-        (0, 0), (100, 100), (100, 101),
+        (0, 0),        # daily_units < 1
+        (100, -1),     # safety_margin < 0
+        (100, 100),    # safety_margin >= daily_units
+        (100, 101),    # safety_margin >= daily_units
     ])
     def test_bad_config_rejected(self, daily, margin):
         with pytest.raises(ValueError):
             QuotaTracker(daily_units=daily, safety_margin=margin)
+
+    def test_spend_negative_units_raises(self):
+        qt = QuotaTracker(daily_units=100, safety_margin=10)
+        with pytest.raises(ValueError, match="units must be >= 0"):
+            qt.spend(-1)
+
+    def test_spend_crossing_ceiling_without_preflight_logs_warning_not_raise(self):
+        # spend() is a post-hoc recorder, not a gate: it must not raise even
+        # when the effective ceiling is crossed (ensure_capacity is the
+        # pre-flight gate for that) - it should log and continue.
+        qt = QuotaTracker(daily_units=100, safety_margin=10)
+        qt.spend(95)  # 95 > effective_ceiling (90), no ensure_capacity called first
+        assert qt.used_units == 95
+        assert qt.used_units > qt.effective_ceiling
