@@ -116,7 +116,21 @@ def _month_stratified_sample(
         step = n / k
         start = float(rng.uniform(0.0, step))
         indices = sorted({min(int(start + i * step), n - 1) for i in range(k)})
+        if len(indices) < k:
+            # Rounding collisions in the systematic-sampling positions can
+            # collapse two distinct draws onto the same index; this is
+            # visible here rather than silently under-delivering the quota.
+            _log.warning(
+                "month_stratified_sample_index_collision",
+                month=m, requested=k, got=len(indices),
+            )
         selected.extend(bucket[i] for i in indices)
+
+    if len(selected) != target_n:
+        _log.warning(
+            "month_stratified_sample_quota_mismatch",
+            target_n=target_n, actual_n=len(selected),
+        )
 
     return selected
 
