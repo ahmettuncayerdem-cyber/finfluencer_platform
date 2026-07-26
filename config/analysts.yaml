@@ -104,7 +104,14 @@ analysts:
   - key: "basaran"
     display_name: "Mert Başaran"
 
-    handle: "@selcukgecer"
+    # Corrected 2026-07-13: this entry previously had handle="@selcukgecer"
+    # (a copy-paste error - Selcuk Gecer's own handle), which caused
+    # collect_channels() to resolve basaran's channel to gecer's channel
+    # (channel_id UCqU4fCu2zSL8gamk2CgvjCQ). Confirmed via the Phase 0
+    # entity-model backfill: basaran's 304 collected videos were an exact
+    # 1:1 duplicate of gecer's 304 videos. Corrected handle below per
+    # explicit confirmation.
+    handle: "@MertBasaranOfficial"
     channel_id: null
 
     expertise_class: "long_horizon"
@@ -115,7 +122,7 @@ analysts:
 
     pilot: false
 
-    channel_url: null
+    channel_url: "https://youtube.com/@MertBasaranOfficial"
     verified_at: null
 
 
