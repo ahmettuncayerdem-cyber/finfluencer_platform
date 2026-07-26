@@ -5,6 +5,10 @@ requests are welcome, but please open an issue to discuss significant
 changes before submitting a pull request.
 
 ## Development setup
+
+Install dependencies with `poetry install`, then run the test suite with
+`poetry run pytest`.
+
 ## Code style
 
 - Ruff handles linting and formatting (`poetry run ruff check .`, `poetry run ruff format .`).
