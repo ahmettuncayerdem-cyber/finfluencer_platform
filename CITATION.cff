@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Finfluencer Research Platform"
+version: 1.0.0
+date-released: 2026-07-26
+authors:
+  - name: "Finfluencer Research Group"
+repository-code: "https://github.com/REPLACE-ORG/finfluencer-platform"
+license: MIT
+keywords:
+  - computational-social-science
+  - behavioural-finance
+  - retail-investor-sentiment
+  - youtube
+  - sentiment-analysis
+  - topic-modeling
+  - turkish-nlp
+abstract: >
+  A reusable computational research platform for empirical studies of
+  financial YouTube communities, retail investor behaviour, and
+  finfluencer discourse.
