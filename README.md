@@ -69,8 +69,6 @@ src/finfluencer/
     market/       BIST100/TCMB EVDS confirmatory analysis (optional extra)
 ```
 
-See [`Software_Product_Architecture_v1.0.md`](Software_Product_Architecture_v1.0.md) for the full architecture (module dependency graph, pipeline engine design, plugin system, versioning strategy) and [`ADR-0001_TopicEvolutionRecord_ScopeId_Deferral.md`](ADR-0001_TopicEvolutionRecord_ScopeId_Deferral.md) for the one recorded architecture decision so far.
-
 ## Testing
 
 ```bash
