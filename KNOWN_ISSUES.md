@@ -188,6 +188,13 @@ back to a caret range (e.g. `^2.2`) and regenerating `poetry.lock`:
    `import torch; import pandas` succeed without `WinError 1114`.
 3. `poetry run pytest` (full suite, no path restriction) collects and
    runs without the `WinError 1114` collection error.
+4. The `python` compatibility range in `pyproject.toml` is widened
+   back from `>=3.11,<3.14` to `>=3.11,<3.15` (or whatever range is
+   then current) in the same change that removes the `torch` pin.
+   The narrower range exists solely to satisfy Poetry's solver for
+   the `torch`/`triton` combination and has no independent
+   justification once the pin is removed.
 
-Once all three are confirmed, update the `torch` constraint, run
-`poetry lock`, and update or remove this section.
+Once all four are confirmed, update the `torch` constraint and the
+`python` constraint, run `poetry lock`, and update or remove this
+section.
