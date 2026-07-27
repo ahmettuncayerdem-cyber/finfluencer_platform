@@ -115,7 +115,17 @@ youtube-transcript-api   = "^0.6"
 transformers          = "^4.36"
 sentence-transformers = "^2.3"
 bertopic              = "^0.16"
-torch                 = "^2.2"
+# TEMPORARY PIN (2026-07-27): torch >=2.9.0 triggers a Windows-only DLL
+# initialization failure (OSError WinError 1114, torch/lib/c10.dll) when
+# any pandas/pyarrow-touching import happens before torch in the same
+# process. Confirmed via isolated, repository-independent experiments as
+# an upstream PyTorch regression, not specific to this repository or
+# environment (see pytorch/pytorch#166628, open upstream as of this
+# writing). torch 2.8.0 does not exhibit this failure with our pinned
+# pandas/pyarrow/numpy versions. Revert to "^2.2" (or a newer caret
+# range) once the upstream issue is resolved and the fix is verified
+# not to regress. See KNOWN_ISSUES.md for the full investigation.
+torch                 = ">=2.8.0,<2.9.0"
 langdetect            = "^1.0.9"
 
 # ---- Statistics and multivariate methods ------------------------------------
