@@ -197,6 +197,7 @@ pandas-stubs  = "^2.1"
 # ==============================================================================
 # Docs group (only installed when building documentation)
 # ==============================================================================
+psutil = "^7.2.2"
 
 [tool.poetry.group.docs]
 optional = true
