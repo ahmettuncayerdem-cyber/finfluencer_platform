@@ -3560,6 +3560,22 @@ files = [
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
+name = "pymannkendall"
+version = "1.4.3"
+description = "A python package for non-parametric Mann-Kendall family of trend tests."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "pymannkendall-1.4.3-py3-none-any.whl", hash = "sha256:7d988efffae26c12c04b95f77042b946c8581da7526d94b2bbfb7416fb55681f"},
+    {file = "pymannkendall-1.4.3.tar.gz", hash = "sha256:f9e3bbbb583b5285d15082aa0007825e5bea4dde9858d2e7ca81ee6f1e378e82"},
+]
+
+[package.dependencies]
+numpy = "*"
+scipy = "*"
+
+[[package]]
 name = "pymdown-extensions"
 version = "11.0.1"
 description = "Extension pack for Python Markdown."
@@ -4286,6 +4302,29 @@ examples = ["matplotlib (>=3.6.1)", "pandas (>=1.5.0)", "plotly (>=5.22.0)", "po
 install = ["joblib (>=1.4.0)", "narwhals (>=2.0.1)", "numpy (>=1.24.1)", "scipy (>=1.10.0)", "threadpoolctl (>=3.5.0)"]
 maintenance = ["conda-lock (==3.0.1)"]
 tests = ["matplotlib (>=3.6.1)", "mypy (>=1.15)", "numpydoc (>=1.2.0)", "pandas (>=1.5.0)", "polars (>=0.20.30)", "pooch (>=1.8.0)", "pyamg (>=5.0.0)", "pyarrow (>=13.0.0)", "pytest (>=7.1.2)", "pytest-cov (>=2.9.0)", "rich (>=14.1.0)", "ruff (>=0.12.2)"]
+
+[[package]]
+name = "scikit-posthocs"
+version = "0.14.0"
+description = "Statistical post-hoc analysis and outlier detection algorithms"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "scikit_posthocs-0.14.0-py3-none-any.whl", hash = "sha256:9e2ecd5828cb783c42c1923e223eab202f529b03ab97de587647ab30f6e88333"},
+    {file = "scikit_posthocs-0.14.0.tar.gz", hash = "sha256:3b9f9273fc9037ee967d11b6a15aef1c6c0ed33a1936ff8879d6f5fb0a181227"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+numpy = "*"
+pandas = ">=0.20.0"
+scipy = ">=1.9.0"
+seaborn = "*"
+statsmodels = "*"
+
+[package.extras]
+test = ["coverage", "pytest"]
 
 [[package]]
 name = "scipy"
@@ -5220,4 +5259,4 @@ market = ["yfinance"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "4970b58e6c4a150755569727dd2eac0fec58b88cb4a0acd3cf6a2487a765bfbb"
+content-hash = "eaffe372afefeb14ed300ef193c9517c17934850f7c070a9c8b59ee805a910b2"
