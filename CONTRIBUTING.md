@@ -77,3 +77,10 @@ install, unlike `pandas` and `PyYAML` (covered by the `pandas-stubs` and
 
 This project favors small, independently buildable commits with a single
 logical purpose per commit, each verified in isolation before landing.
+
+## Versioning and releases
+
+See [`docs/VERSIONING.md`](docs/VERSIONING.md) for the two-axis versioning
+policy (software package version vs. research/citation version) and
+[`docs/RELEASING.md`](docs/RELEASING.md) for the release process itself
+(branching, tagging, CHANGELOG policy).

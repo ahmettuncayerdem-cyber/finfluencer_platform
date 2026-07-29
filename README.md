@@ -8,7 +8,7 @@ License: [MIT](LICENSE). See [`CITATION.cff`](CITATION.cff) if you use this plat
 
 ## Requirements
 
-- Python `>=3.11,<3.15`
+- Python `>=3.11,<3.14`
 - [Poetry](https://python-poetry.org/) `>=1.5`
 
 ## Installation
@@ -55,6 +55,26 @@ The same commands work via `python -m finfluencer.collect.main run ...` if you'r
 
 Stages run in dependency order — `channels` → `videos` → `comments`/`transcripts` → `preprocess` → `embeddings`/`sentiment` → `topics` → `topic_sentiment`/`topic_evolution` — and each stage checkpoints its progress under `output.paths.checkpoints` (see `config/settings.yaml`), so an interrupted run resumes rather than restarting from scratch.
 
+## Reporting & analysis
+
+Once the collection/processing pipeline above has produced data, a separate `reporting` CLI turns it into statistics and manuscript-ready output:
+
+```bash
+# Statistical computation (master table + inferential tests):
+poetry run finfluencer analyze
+
+# Manuscript output (data package, figures, tables):
+poetry run finfluencer report
+
+# Non-mutating diagnostics: config validity, package availability, per-stage readiness:
+poetry run finfluencer validate
+
+# Package the current report-stage outputs into a timestamped replication snapshot:
+poetry run finfluencer export
+```
+
+Every command accepts `--settings`/`--analysts` (same config files as `run`), `--dry-run`, `--force`, `--verbose`, and `--json`; `analyze`/`report` additionally accept `--stage <name>` to run a single stage instead of their whole group. `finfluencer <command> --help` lists each command's exact options. These commands are thin CLI wrappers over `finfluencer.reporting.orchestrator.run_reporting_pipeline()`, the single reporting-pipeline engine — a GUI-facing equivalent (`AnalysisJob`) composes over the same engine rather than duplicating it (see [`ADR-Sprint2-01`](ADR-Sprint2-01_AnalysisJob_Composes_Over_Orchestrator.md)).
+
 ## Project structure
 
 ```
@@ -67,7 +87,10 @@ src/finfluencer/
     sentiment/    sentiment classification
     topics/       BERTopic-based topic modelling + topic evolution
     market/       BIST100/TCMB EVDS confirmatory analysis (optional extra)
+    reporting/    statistics, manuscript export, and the reporting CLI (analyze/report/validate/export)
 ```
+
+For the full module inventory, dependency graph, and product roadmap, see [`Software_Product_Architecture_v1.0.md`](Software_Product_Architecture_v1.0.md).
 
 ## Testing
 
@@ -81,13 +104,17 @@ Runs the full suite with coverage (configured in `pyproject.toml`; gate is 75%).
 
 **Windows: `MemoryBudget` tests fail with `AttributeError`, or a `checkpoint` test fails on a path-separator mismatch.** `core/budgets.py`'s memory tracking prefers `psutil` (cross-platform) with a fallback to the POSIX-only `resource` module; make sure `psutil` is installed (it's a transitive dependency, but confirm with `poetry show psutil`). Path-comparison tests use `pathlib.Path.parts` rather than string matching specifically to be platform-independent — if you hit a path-related failure, it's worth checking whether a newer test was written with a POSIX-only string assumption.
 
-**`poetry install` fails with a Python-version error.** Check `python --version` — the project requires `>=3.11,<3.15`. Use `poetry env use <path-to-3.11+-interpreter>` if your default `python` doesn't satisfy that.
+**`poetry install` fails with a Python-version error.** Check `python --version` — the project requires `>=3.11,<3.14`. Use `poetry env use <path-to-3.11+-interpreter>` if your default `python` doesn't satisfy that.
 
 **`collect` stage fails with an authentication/configuration error.** Check `.env` is populated (see Configuration above) and that `config/settings.yaml`'s placeholder revisions/handles have been resolved if you're running at `replication.stage: publication`.
 
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Versioning and releases
+
+This project tracks two independent version numbers (the software package version and a separate research/citation version) — see [`docs/VERSIONING.md`](docs/VERSIONING.md). For the release process itself (branching, tagging, CHANGELOG policy), see [`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## Changelog
 
