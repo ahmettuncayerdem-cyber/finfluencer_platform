@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint (ruff + mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Floor of pyproject.toml's declared constraint (python = ">=3.11,<3.14").
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies from poetry.lock
+        run: poetry install --sync
+
+      - name: Run ruff
+        # Sprint 2.7A scoped quality gate: only the Sprint 1/2 reporting +
+        # CLI deliverables are gated here (their per-file-ignores live in
+        # pyproject.toml). The rest of the repository carries pre-existing
+        # findings tracked separately and is intentionally not enforced yet.
+        run: >
+          poetry run ruff check
+          src/finfluencer/reporting src/finfluencer/cli.py
+          tests/unit/test_reporting tests/unit/test_cli.py
+
+      - name: Run mypy
+        # Same scoped policy as ruff above. --follow-imports=silent lets
+        # mypy use type information from imported modules without also
+        # reporting pre-existing errors in unrelated legacy modules --
+        # strict = true (pyproject.toml) is not weakened by this.
+        run: >
+          poetry run mypy --follow-imports=silent
+          src/finfluencer/reporting src/finfluencer/cli.py
+
+  test:
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # Floor and next minor of pyproject.toml's declared constraint
+        # (python = ">=3.11,<3.14"). Both OS x both Python version combinations
+        # are run (no exclusions): the platform's own history (see
+        # KNOWN_ISSUES.md) shows Windows-specific failures that only surface
+        # for particular dependency/interpreter combinations, so this axis is
+        # deliberately not thinned to save minutes.
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies from poetry.lock
+        run: poetry install --sync
+
+      - name: Run test suite
+        # pyproject.toml's own [tool.pytest.ini_options] addopts already configure
+        # --cov=finfluencer --cov-report=term-missing --cov-report=html:htmlcov
+        # --cov-report=xml:coverage.xml --cov-fail-under=75.0 - nothing is
+        # duplicated here. This step fails the job if the coverage gate isn't met,
+        # exactly as a local `pytest` run already does.
+        run: poetry run pytest
+
+      - name: Upload coverage artifact
+        # Runs even if the previous step failed the coverage gate, so a
+        # borderline or regressed run's report is still inspectable. Named
+        # per matrix leg since each (os, python-version) combination produces
+        # its own coverage.xml/htmlcov, and actions/upload-artifact@v4
+        # requires unique artifact names within one workflow run.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            htmlcov/
+          if-no-files-found: warn
