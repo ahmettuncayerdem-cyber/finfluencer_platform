@@ -310,6 +310,34 @@ ignore = [
 "tests/**/*.py"   = ["S101", "PLR2004"]  # asserts and magic numbers permitted in tests
 "scripts/**/*.py" = ["T201"]              # print statements permitted in scripts
 
+# --- Sprint 2.7A scoped quality gate (reporting/cli.py deliverables only) ---
+# These are stylistic findings, deliberately NOT fixed in code per the
+# 2.7A policy: no reformatting, no line-shortening, no refactoring of
+# working code. Genuine correctness findings (B904, stale noqa, B905,
+# F401, S110/SIM105) were fixed in code instead and are not listed here.
+"src/finfluencer/reporting/**/*.py" = [
+    "E501",    # long lines — manuscript table/figure literals are wide by nature
+    "RUF001",  # ambiguous unicode — Turkish literals and math symbols (rho, minus) in manuscript output
+    "UP035",   # Callable import from typing vs. collections.abc — existing accepted pattern
+    "UP037",   # quoted type annotation — existing accepted pattern
+    "PLR2004", # magic value in comparison
+    "RUF005",  # list concatenation vs. unpacking — existing accepted pattern
+    "I001",    # import block sort order — reformatting out of scope for 2.7A
+]
+"src/finfluencer/reporting/main.py" = [
+    "B008",    # typer.Option() as an argument default is Typer's own required API pattern
+]
+"tests/unit/test_reporting/**/*.py" = [
+    "E501",    # long lines
+    "UP037",   # quoted type annotation — existing accepted pattern
+    "N806",    # module-level constant referenced inside a function — existing accepted pattern
+]
+"tests/unit/test_cli.py" = [
+    "E501",    # long lines
+    "PLW1510", # subprocess.run without check= — these CLI smoke tests assert on .returncode themselves
+    "S603",    # subprocess call — invokes sys.executable with test-controlled args, not untrusted input
+]
+
 [tool.ruff.format]
 quote-style        = "double"
 indent-style       = "space"
@@ -355,6 +383,10 @@ module = [
     "sentence_transformers.*",
     "responses.*",
     "statsmodels.*",
+    "openpyxl.*",        # used by reporting/manuscript_tables.py — no stub package declared
+    "scipy.*",            # used by reporting/inferential.py — no stub package declared
+    "pymannkendall.*",    # used by reporting/inferential.py — no stub package declared
+    "scikit_posthocs.*",  # used by reporting/inferential.py — no stub package declared
 ]
 ignore_missing_imports = true
 
