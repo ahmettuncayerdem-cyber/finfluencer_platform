@@ -1,0 +1,221 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2200 1460" width="2200" height="1460" font-family="Arial, Helvetica, sans-serif">
+  <title>Graphical Abstract v3</title>
+  <defs>
+    <symbol id="avatar" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#EAF1F6"/><circle cx="20" cy="15" r="6.5" fill="#2E6F95"/><path d="M8 32 Q20 20 32 32 Z" fill="#2E6F95"/></symbol>
+    <symbol id="play" viewBox="0 0 40 40"><rect x="3" y="9" width="34" height="22" rx="5" fill="#1B3A5C"/><polygon points="16,15 27,20 16,25" fill="#FFFFFF"/></symbol>
+    <symbol id="film" viewBox="0 0 40 40"><rect x="4" y="10" width="32" height="20" rx="2" fill="#2E6F95"/><rect x="4" y="10" width="7" height="20" fill="#1B3A5C"/><rect x="29" y="10" width="7" height="20" fill="#1B3A5C"/></symbol>
+    <symbol id="chatbub" viewBox="0 0 40 40"><path d="M4 8 H36 V26 H18 L10 34 V26 H4 Z" fill="#4FA8C9"/></symbol>
+    <symbol id="cluster" viewBox="0 0 40 40"><circle cx="14" cy="16" r="8" fill="#4FA8C9"/><circle cx="27" cy="14" r="6.5" fill="#2E6F95"/><circle cx="20" cy="28" r="7" fill="#5B6B84"/></symbol>
+    <symbol id="brain" viewBox="0 0 40 40"><path d="M12 6 C6 6 4 12 6 16 C3 18 3 24 8 26 C8 31 14 34 18 31 C22 34 28 31 28 26 C33 24 33 18 30 16 C32 12 30 6 24 6 C22 4 18 4 16 6 Z" fill="none" stroke="#5B6B84" stroke-width="2.2"/><line x1="20" y1="6" x2="20" y2="32" stroke="#5B6B84" stroke-width="2"/></symbol>
+    <symbol id="donut" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#DCE7EE"/><path d="M20 3 A17 17 0 0 1 35 25 L20 20 Z" fill="#5B6B84"/><path d="M20 3 A17 17 0 0 0 5 25 L20 20 Z" fill="#2E6F95"/><circle cx="20" cy="20" r="8" fill="#FFFFFF"/></symbol>
+    <symbol id="docchart" viewBox="0 0 40 40"><rect x="6" y="4" width="24" height="32" rx="2" fill="#FFFFFF" stroke="#2E6F95" stroke-width="2.2"/><path d="M11 27 L16 20 L21 24 L29 12" stroke="#2E6F95" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="11" y1="10" x2="25" y2="10" stroke="#B9C2CC" stroke-width="2"/></symbol>
+    <symbol id="podium" viewBox="0 0 40 40"><circle cx="20" cy="10" r="6" fill="#5B6B84"/><path d="M12 34 L14 22 H26 L28 34 Z" fill="#5B6B84"/><rect x="10" y="30" width="20" height="6" rx="1" fill="#374151"/></symbol>
+    <symbol id="peoplebubbles" viewBox="0 0 60 40"><circle cx="16" cy="26" r="8" fill="#2E6F95"/><circle cx="30" cy="22" r="9" fill="#1B3A5C"/><circle cx="44" cy="26" r="8" fill="#5B6B84"/><rect x="22" y="2" width="16" height="11" rx="5.5" fill="#B9C2CC"/><rect x="6" y="10" width="13" height="9" rx="4.5" fill="#CBD2D9"/></symbol>
+    <symbol id="bubblecluster" viewBox="0 0 40 40"><circle cx="15" cy="18" r="10" fill="#4FA8C9" opacity="0.9"/><circle cx="25" cy="14" r="8" fill="#2E6F95" opacity="0.9"/><circle cx="22" cy="26" r="7" fill="#5B6B84" opacity="0.9"/></symbol>
+    <symbol id="chartflat" viewBox="0 0 40 40"><path d="M4 22 L12 18 L18 24 L26 20 L36 22" stroke="#5B6B84" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="4" y1="30" x2="36" y2="30" stroke="#CBD2D9" stroke-width="1.5" stroke-dasharray="3,3"/></symbol>
+    <symbol id="chartup" viewBox="0 0 40 40"><path d="M4 30 L13 22 L20 26 L34 8" stroke="#2E6F95" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><polygon points="34,8 26,9 33,16" fill="#2E6F95"/></symbol>
+    <symbol id="checkperson" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#EAF1F6"/><circle cx="20" cy="15" r="6" fill="#2E6F95"/><path d="M9 31 Q20 21 31 31 Z" fill="#2E6F95"/><circle cx="30" cy="29" r="8" fill="#FFFFFF" stroke="#2E6F95" stroke-width="1.5"/><path d="M26 29 L29 32 L34 25" stroke="#2E6F95" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="searchchart" viewBox="0 0 40 40"><circle cx="17" cy="17" r="11" fill="none" stroke="#5B6B84" stroke-width="2.5"/><line x1="25" y1="25" x2="34" y2="34" stroke="#5B6B84" stroke-width="3" stroke-linecap="round"/><rect x="11" y="18" width="3" height="6" fill="#5B6B84"/><rect x="16" y="14" width="3" height="10" fill="#2E6F95"/><rect x="21" y="10" width="3" height="14" fill="#1B3A5C"/></symbol>
+    <symbol id="headbars" viewBox="0 0 40 40"><path d="M14 34 V22 C14 12 20 6 24 6 C29 6 33 10 33 15 C33 18 31 20 29 21 L29 34 Z" fill="none" stroke="#2E6F95" stroke-width="2.2"/><rect x="17" y="26" width="3" height="6" fill="#2E6F95"/><rect x="21" y="22" width="3" height="10" fill="#2E6F95"/><rect x="25" y="18" width="3" height="14" fill="#2E6F95"/></symbol>
+    <symbol id="shieldcheck" viewBox="0 0 40 40"><path d="M20 4 L34 10 V19 C34 28 28 33 20 36 C12 33 6 28 6 19 V10 Z" fill="none" stroke="#2E6F95" stroke-width="2.2"/><path d="M13 20 L18 25 L28 13" stroke="#2E6F95" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="twoarrow" viewBox="0 0 40 40"><path d="M8 15 A12 12 0 0 1 30 11" stroke="#2E6F95" stroke-width="2.3" fill="none"/><polygon points="30,11 25,9 27,16" fill="#2E6F95"/><path d="M32 25 A12 12 0 0 1 10 29" stroke="#2E6F95" stroke-width="2.3" fill="none"/><polygon points="10,29 15,31 13,24" fill="#2E6F95"/><circle cx="10" cy="20" r="4" fill="#2E6F95"/><circle cx="30" cy="20" r="4" fill="#2E6F95"/></symbol>
+    <symbol id="starcrowd" viewBox="0 0 40 40"><circle cx="12" cy="26" r="6" fill="#B9C2CC"/><circle cx="28" cy="26" r="6" fill="#B9C2CC"/><circle cx="20" cy="22" r="7" fill="#2E6F95"/><polygon points="20,4 22.5,11 30,11 24,15.5 26,23 20,18.5 14,23 16,15.5 10,11 17.5,11" fill="#D9A441"/></symbol>
+    <symbol id="heartchat" viewBox="0 0 40 40"><path d="M20 33 C6 24 8 10 18 12 C19 12.3 19.6 13 20 14 C20.4 13 21 12.3 22 12 C32 10 34 24 20 33 Z" fill="#2E6F95"/></symbol>
+    <symbol id="clock" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" stroke="#2E6F95" stroke-width="2.4"/><line x1="20" y1="20" x2="20" y2="10" stroke="#2E6F95" stroke-width="2.4" stroke-linecap="round"/><line x1="20" y1="20" x2="27" y2="24" stroke="#2E6F95" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="target" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" stroke="#1B3A5C" stroke-width="2.5"/><circle cx="20" cy="20" r="9" fill="none" stroke="#1B3A5C" stroke-width="2.5"/><circle cx="20" cy="20" r="3" fill="#D9A441"/><line x1="28" y1="6" x2="34" y2="0" stroke="#1B3A5C" stroke-width="2.5"/><polygon points="34,0 30,1 33,4" fill="#1B3A5C"/></symbol>
+  </defs>
+  <rect x="0" y="0" width="2200" height="1460" fill="#FFFFFF"/>
+  <text x="1100" y="60" font-size="32" font-weight="800" fill="#1B3A5C" text-anchor="middle">Message versus Messenger Effects on Investor Sentiment:</text>
+  <text x="1100" y="98" font-size="22" font-weight="500" fill="#374151" text-anchor="middle">Evidence from Turkish Financial YouTube Comments</text>
+
+  <rect x="40" y="150" width="680" height="925" rx="14" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1.5"/>
+  <rect x="56" y="166" width="648" height="52" rx="8" fill="#1B3A5C"/>
+  <use href="#play" x="616" y="176" width="32" height="32"/>
+  <text x="380" y="198" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">TURKISH FINANCIAL YOUTUBE ECOSYSTEM</text>
+
+  <text x="80" y="252" font-size="18" font-weight="700" fill="#1B3A5C">4 FINFLUENCERS</text>
+
+  <g>
+    <circle cx="112" cy="300" r="26" fill="#EAF1F6" stroke="#D9A441" stroke-width="3"/>
+    <use href="#avatar" x="88" y="276" width="48" height="48"/>
+    <text x="155" y="295" font-size="18" font-weight="700" fill="#1B3A5C">Tunç Şatıroğlu</text>
+    <text x="155" y="315" font-size="12.5" fill="#6B7280">Strongest messenger effect</text>
+  </g>
+  <g>
+    <circle cx="112" cy="375" r="26" fill="#EAF1F6"/>
+    <use href="#avatar" x="88" y="351" width="48" height="48"/>
+    <text x="155" y="380" font-size="18" font-weight="700" fill="#1B3A5C">Atilla Yeşilada</text>
+  </g>
+  <g>
+    <circle cx="112" cy="450" r="26" fill="#EAF1F6"/>
+    <use href="#avatar" x="88" y="426" width="48" height="48"/>
+    <text x="155" y="455" font-size="18" font-weight="700" fill="#1B3A5C">Mert Başaran</text>
+  </g>
+  <g>
+    <circle cx="112" cy="525" r="26" fill="#EAF1F6"/>
+    <use href="#avatar" x="88" y="501" width="48" height="48"/>
+    <text x="155" y="530" font-size="18" font-weight="700" fill="#1B3A5C">Selçuk Geçer</text>
+  </g>
+
+  <line x1="380" y1="560" x2="380" y2="590" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="370,590 390,590 380,602" fill="#9AA3AF"/>
+  <rect x="80" y="608" width="560" height="52" rx="8" fill="#EAF1F6"/>
+  <use href="#film" x="98" y="616" width="34" height="34"/>
+  <text x="145" y="640" font-size="17" font-weight="700" fill="#1B3A5C">955 VIDEOS</text>
+
+  <line x1="380" y1="660" x2="380" y2="686" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="370,686 390,686 380,698" fill="#9AA3AF"/>
+
+  <rect x="80" y="704" width="560" height="52" rx="8" fill="#EAF1F6"/>
+  <use href="#chatbub" x="98" y="712" width="34" height="34"/>
+  <text x="145" y="736" font-size="17" font-weight="700" fill="#1B3A5C">17,566 COMMENTS</text>
+
+  <line x1="380" y1="756" x2="380" y2="782" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="370,782 390,782 380,794" fill="#9AA3AF"/>
+
+  <rect x="80" y="800" width="560" height="60" rx="8" fill="#DCE7EE"/>
+  <use href="#cluster" x="98" y="812" width="36" height="36"/>
+  <text x="150" y="826" font-size="16" font-weight="700" fill="#1B3A5C">BERTopic TOPIC MODELING</text>
+  <text x="150" y="847" font-size="13.5" fill="#374151">128 topics identified</text>
+
+  <line x1="380" y1="860" x2="380" y2="886" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="370,886 390,886 380,898" fill="#9AA3AF"/>
+
+  <rect x="80" y="904" width="560" height="60" rx="8" fill="#E7E9ED"/>
+  <use href="#brain" x="98" y="916" width="36" height="36"/>
+  <text x="150" y="930" font-size="16" font-weight="700" fill="#1B3A5C">BERT-BASED SENTIMENT</text>
+  <text x="150" y="951" font-size="13.5" fill="#374151">Positive vs. negative classification</text>
+
+  <line x1="380" y1="964" x2="380" y2="990" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="370,990 390,990 380,1002" fill="#9AA3AF"/>
+
+  <rect x="80" y="1008" width="560" height="60" rx="8" fill="#FDF6E9"/>
+  <use href="#donut" x="98" y="1020" width="36" height="36"/>
+  <text x="150" y="1034" font-size="16" font-weight="700" fill="#8A6114">VARIANCE DECOMPOSITION</text>
+  <text x="150" y="1055" font-size="13.5" fill="#6B4E15">Comment-level, message vs. messenger</text>
+  <rect x="755" y="150" width="700" height="925" rx="14" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1.5"/>
+  <text x="1105" y="205" font-size="19" font-weight="700" fill="#1B3A5C" text-anchor="middle">WHAT DRIVES INVESTOR SENTIMENT?</text>
+
+  <text x="890" y="258" font-size="24" font-weight="800" fill="#2E6F95" text-anchor="middle">MESSAGE</text>
+  <text x="890" y="278" font-size="12.5" fill="#6B7280" text-anchor="middle">(TOPIC / CONTENT)</text>
+
+  <circle cx="1105" cy="258" r="26" fill="#FFFFFF" stroke="#1B3A5C" stroke-width="2"/>
+  <text x="1105" y="264" font-size="14" font-weight="700" fill="#1B3A5C" text-anchor="middle">VS</text>
+
+  <text x="1320" y="258" font-size="24" font-weight="800" fill="#5B6B84" text-anchor="middle">MESSENGER</text>
+  <text x="1320" y="278" font-size="12.5" fill="#6B7280" text-anchor="middle">(COMMUNICATOR IDENTITY)</text>
+
+  <use href="#docchart" x="850" y="310" width="80" height="80"/>
+  <use href="#podium" x="1280" y="310" width="80" height="80"/>
+
+  <text x="890" y="416" font-size="14" fill="#374151" text-anchor="middle">Financial topics, content,</text>
+  <text x="890" y="436" font-size="14" fill="#374151" text-anchor="middle">economic issues</text>
+  <text x="1320" y="416" font-size="14" fill="#374151" text-anchor="middle">Credibility, opinion leadership,</text>
+  <text x="1320" y="436" font-size="14" fill="#374151" text-anchor="middle">parasocial interaction</text>
+
+  <path d="M 890 452 Q 1000 495 1085 522" stroke="#2E6F95" stroke-width="2.5" fill="none"/>
+  <polygon points="1085,522 1074,514 1078,527" fill="#2E6F95"/>
+  <path d="M 1320 452 Q 1210 495 1125 522" stroke="#5B6B84" stroke-width="2.5" fill="none"/>
+  <polygon points="1125,522 1136,514 1132,527" fill="#5B6B84"/>
+
+  <use href="#peoplebubbles" x="1045" y="530" width="120" height="80"/>
+  <text x="1105" y="642" font-size="20" font-weight="800" fill="#1B3A5C" text-anchor="middle">INVESTOR SENTIMENT</text>
+
+  <line x1="800" y1="668" x2="1410" y2="668" stroke="#E2E5EA" stroke-width="1.5"/>
+  <text x="1105" y="708" font-size="17" font-weight="700" fill="#1B3A5C" text-anchor="middle">RELATIONSHIP WITH MARKET RETURNS (BIST100)</text>
+
+  <rect x="790" y="740" width="190" height="150" rx="10" fill="#F7F8FA" stroke="#E2E5EA"/>
+  <use href="#bubblecluster" x="850" y="760" width="70" height="50"/>
+  <text x="885" y="850" font-size="13" font-weight="700" fill="#1B3A5C" text-anchor="middle">AGGREGATE</text>
+  <text x="885" y="868" font-size="13" font-weight="700" fill="#1B3A5C" text-anchor="middle">SENTIMENT INDEX</text>
+
+  <polygon points="985,798 985,812 1012,805" fill="#9AA3AF"/>
+
+  <rect x="1020" y="740" width="190" height="150" rx="10" fill="#F7F8FA" stroke="#E2E5EA"/>
+  <use href="#chartflat" x="1075" y="760" width="80" height="60"/>
+  <text x="1115" y="850" font-size="12.5" font-weight="700" fill="#1B3A5C" text-anchor="middle">No contemporaneous</text>
+  <text x="1115" y="868" font-size="12.5" font-weight="700" fill="#1B3A5C" text-anchor="middle">effect on returns</text>
+
+  <polygon points="1215,798 1215,812 1242,805" fill="#9AA3AF"/>
+
+  <rect x="1250" y="740" width="160" height="150" rx="10" fill="#F7F8FA" stroke="#E2E5EA"/>
+  <use href="#chartup" x="1295" y="760" width="70" height="60"/>
+  <text x="1330" y="850" font-size="12.5" font-weight="700" fill="#1B3A5C" text-anchor="middle">Granger-causes</text>
+  <text x="1330" y="868" font-size="12.5" font-weight="700" fill="#1B3A5C" text-anchor="middle">short-term returns</text>
+  <rect x="1490" y="150" width="670" height="925" rx="14" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1.5"/>
+  <rect x="1506" y="166" width="638" height="52" rx="8" fill="#1B3A5C"/>
+  <text x="1825" y="198" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">MAIN FINDINGS</text>
+
+  <use href="#donut" x="1526" y="248" width="56" height="56"/>
+  <text x="1600" y="262" font-size="15" font-weight="700" fill="#1B3A5C">Topic identity explains substantially more</text>
+  <text x="1600" y="282" font-size="15" font-weight="700" fill="#1B3A5C">sentiment variance than communicator identity.</text>
+  <text x="1600" y="308" font-size="14" font-weight="800" fill="#2E6F95">R&#178; Topic = 24.4%</text>
+  <text x="1600" y="328" font-size="14" font-weight="800" fill="#5B6B84">R&#178; Messenger = 5.4%</text>
+  <line x1="1506" y1="352" x2="2144" y2="352" stroke="#E2E5EA"/>
+
+  <use href="#checkperson" x="1526" y="372" width="56" height="56"/>
+  <text x="1600" y="390" font-size="15" font-weight="700" fill="#1B3A5C">Communicator identity remains</text>
+  <text x="1600" y="410" font-size="15" font-weight="700" fill="#1B3A5C">significant after controlling</text>
+  <text x="1600" y="430" font-size="15" font-weight="700" fill="#1B3A5C">for topic composition.</text>
+  <line x1="1506" y1="454" x2="2144" y2="454" stroke="#E2E5EA"/>
+
+  <circle cx="1554" cy="500" r="30" fill="#FDF6E9" stroke="#D9A441" stroke-width="2.5"/>
+  <use href="#avatar" x="1533" y="479" width="42" height="42"/>
+  <text x="1600" y="492" font-size="15" font-weight="700" fill="#8A6114">Tunç Şatıroğlu exhibits the</text>
+  <text x="1600" y="512" font-size="15" font-weight="700" fill="#8A6114">strongest, most persistent</text>
+  <text x="1600" y="532" font-size="15" font-weight="700" fill="#8A6114">messenger effect.</text>
+  <line x1="1506" y1="556" x2="2144" y2="556" stroke="#E2E5EA"/>
+
+  <use href="#searchchart" x="1526" y="576" width="56" height="56"/>
+  <text x="1600" y="594" font-size="15" font-weight="700" fill="#1B3A5C">Aggregate sentiment shows no</text>
+  <text x="1600" y="614" font-size="15" font-weight="700" fill="#1B3A5C">contemporaneous relationship</text>
+  <text x="1600" y="634" font-size="15" font-weight="700" fill="#1B3A5C">with BIST100 returns.</text>
+  <line x1="1506" y1="658" x2="2144" y2="658" stroke="#E2E5EA"/>
+
+  <use href="#chartup" x="1526" y="680" width="56" height="56"/>
+  <text x="1600" y="698" font-size="15" font-weight="700" fill="#1B3A5C">Sentiment Granger-predicts</text>
+  <text x="1600" y="718" font-size="15" font-weight="700" fill="#1B3A5C">short-term BIST100 returns.</text>
+  <rect x="40" y="1095" width="2120" height="180" rx="14" fill="#FFFFFF" stroke="#E2E5EA" stroke-width="1.5"/>
+  <text x="1100" y="1135" font-size="18" font-weight="700" fill="#1B3A5C" text-anchor="middle">THEORETICAL FOUNDATIONS</text>
+
+  <g>
+    <circle cx="220" cy="1195" r="30" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#headbars" x="200" y="1175" width="40" height="40"/>
+    <text x="220" y="1245" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Investor</text>
+    <text x="220" y="1261" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Sentiment Theory</text>
+  </g>
+  <g>
+    <circle cx="573" cy="1195" r="30" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#shieldcheck" x="553" y="1175" width="40" height="40"/>
+    <text x="573" y="1245" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Source Credibility</text>
+    <text x="573" y="1261" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Theory</text>
+  </g>
+  <g>
+    <circle cx="926" cy="1195" r="30" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#twoarrow" x="906" y="1175" width="40" height="40"/>
+    <text x="926" y="1245" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Two-Step Flow</text>
+    <text x="926" y="1261" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Theory</text>
+  </g>
+  <g>
+    <circle cx="1279" cy="1195" r="30" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#starcrowd" x="1259" y="1175" width="40" height="40"/>
+    <text x="1279" y="1245" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Opinion</text>
+    <text x="1279" y="1261" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Leadership</text>
+  </g>
+  <g>
+    <circle cx="1632" cy="1195" r="30" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#heartchat" x="1612" y="1175" width="40" height="40"/>
+    <text x="1632" y="1245" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Parasocial</text>
+    <text x="1632" y="1261" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Interaction</text>
+  </g>
+  <g>
+    <circle cx="1985" cy="1195" r="30" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#clock" x="1965" y="1175" width="40" height="40"/>
+    <text x="1985" y="1245" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Limited Attention</text>
+    <text x="1985" y="1261" font-size="13" font-weight="600" fill="#374151" text-anchor="middle">Theory</text>
+  </g>
+  <rect x="40" y="1300" width="2120" height="120" rx="12" fill="#EAF1F6" stroke="#1B3A5C" stroke-width="1.5"/>
+  <use href="#target" x="85" y="1330" width="60" height="60"/>
+  <text x="1130" y="1352" font-size="21" font-weight="700" fill="#1B3A5C" text-anchor="middle">Investor sentiment in digital financial ecosystems is jointly shaped by</text>
+  <text x="1130" y="1382" font-size="21" font-weight="700" fill="#1B3A5C" text-anchor="middle">message content and communicator identity.</text>
+</svg>
