@@ -366,6 +366,12 @@ def export(
     force: bool = typer.Option(
         False, "--force", help="Overwrite the destination directory if it already exists",
     ),
+    no_archive: bool = typer.Option(
+        False, "--no-archive", help="Skip building the deterministic zip archive of the package",
+    ),
+    no_validate: bool = typer.Option(
+        False, "--no-validate", help="Skip self-validating the package after it is built",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Human-readable console logging (default: JSON to stderr)",
     ),
@@ -374,11 +380,15 @@ def export(
     ),
 ) -> None:
     """Stage the report-stage outputs (manuscript, figures, tables,
-    reports) into a timestamped snapshot under output.paths.replication."""
+    reports) into a timestamped, publication-grade replication package
+    (embedded manifest, codebook, README, checksums, zip archive)
+    under output.paths.replication."""
     try:
         cfg = load_settings(settings, analysts)
         _configure_logging(cfg, verbose=verbose)
-        result = build_replication_package(cfg, dry_run=dry_run, force=force)
+        result = build_replication_package(
+            cfg, dry_run=dry_run, force=force, archive=not no_archive, validate=not no_validate,
+        )
     except (OSError, FinfluencerError) as e:
         typer.echo(f"Export aborted: {e}", err=True)
         raise typer.Exit(code=1) from e
