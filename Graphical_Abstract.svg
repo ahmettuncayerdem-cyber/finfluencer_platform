@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 1080" width="2400" height="1080" font-family="Arial, Helvetica, sans-serif">
+  <title>Graphical Abstract: Message versus Messenger Effects on Investor Sentiment</title>
+  <defs>
+    <symbol id="iconPlay" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#EAF1F6"/><polygon points="15,12 30,20 15,28" fill="#2E6F95"/></symbol>
+    <symbol id="iconPerson" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#EAF1F6"/><circle cx="20" cy="15" r="6.5" fill="#2E6F95"/><path d="M8 32 Q20 20 32 32 Z" fill="#2E6F95"/></symbol>
+    <symbol id="iconCluster" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#EAF1F6"/><circle cx="14" cy="16" r="7" fill="#4FA8C9"/><circle cx="26" cy="15" r="5.5" fill="#2E6F95"/><circle cx="19" cy="27" r="6" fill="#5B6B84"/></symbol>
+    <symbol id="iconSentiment" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#EAF1F6"/><path d="M20 4 A16 16 0 0 0 20 36 Z" fill="#2E6F95"/><path d="M20 4 A16 16 0 0 1 20 36 Z" fill="#B9C2CC"/><text x="12" y="25" font-size="14" fill="#fff" font-weight="bold">+</text><text x="22" y="25" font-size="14" fill="#5B6B84" font-weight="bold">-</text></symbol>
+    <symbol id="iconNews" viewBox="0 0 40 40"><rect x="6" y="8" width="28" height="24" rx="2" fill="#2E6F95"/><rect x="10" y="12" width="20" height="3" fill="#EAF1F6"/><rect x="10" y="18" width="20" height="2" fill="#EAF1F6"/><rect x="10" y="22" width="14" height="2" fill="#EAF1F6"/><rect x="10" y="26" width="16" height="2" fill="#EAF1F6"/></symbol>
+    <symbol id="iconBars" viewBox="0 0 40 40"><rect x="7" y="20" width="6" height="14" fill="#4FA8C9"/><rect x="17" y="12" width="6" height="22" fill="#2E6F95"/><rect x="27" y="6" width="6" height="28" fill="#1B3A5C"/></symbol>
+    <symbol id="iconMega" viewBox="0 0 40 40"><path d="M6 18 L20 10 L20 30 L6 22 Z" fill="#5B6B84"/><rect x="6" y="18" width="4" height="4" fill="#5B6B84"/><path d="M20 10 L34 6 L34 34 L20 30 Z" fill="#5B6B84" opacity="0.55"/></symbol>
+    <symbol id="iconTrust" viewBox="0 0 40 40"><path d="M20 5 L34 11 V20 C34 29 28 34 20 36 C12 34 6 29 6 20 V11 Z" fill="#5B6B84"/><path d="M13 20 L18 25 L28 14" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="iconBook" viewBox="0 0 24 24"><path d="M12 4 C9 2 5 2 3 3 V19 C5 18 9 18 12 20 C15 18 19 18 21 19 V3 C19 2 15 2 12 4 Z" fill="#6B7280"/><line x1="12" y1="5" x2="12" y2="19" stroke="#fff" stroke-width="1"/></symbol>
+    <symbol id="iconStar" viewBox="0 0 40 40"><polygon points="20,3 25,15 38,15 27,23 31,36 20,28 9,36 13,23 2,15 15,15" fill="#D9A441"/></symbol>
+    <symbol id="iconCheck" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#EAF1F6"/><path d="M11 20 L17 27 L29 13" stroke="#2E6F95" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="iconCompare" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#EAF1F6"/><rect x="9" y="22" width="6" height="10" fill="#2E6F95"/><rect x="17" y="14" width="6" height="18" fill="#2E6F95"/><rect x="25" y="24" width="6" height="8" fill="#5B6B84"/></symbol>
+    <symbol id="iconFlat" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#EAF1F6"/><path d="M8 17 Q14 12 20 17 T32 17" stroke="#5B6B84" stroke-width="2.5" fill="none"/><path d="M8 24 Q14 19 20 24 T32 24" stroke="#B9C2CC" stroke-width="2.5" fill="none"/></symbol>
+    <symbol id="iconForecast" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#EAF1F6"/><path d="M8 26 L16 18 L22 22 L32 12" stroke="#2E6F95" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><polygon points="32,12 26,12 32,18" fill="#2E6F95"/></symbol>
+    <symbol id="iconFilm" viewBox="0 0 40 40"><rect x="6" y="10" width="28" height="20" rx="2" fill="#2E6F95"/><rect x="6" y="10" width="6" height="20" fill="#1B3A5C"/><rect x="28" y="10" width="6" height="20" fill="#1B3A5C"/></symbol>
+    <symbol id="iconChat" viewBox="0 0 40 40"><path d="M6 8 H34 V26 H16 L9 33 V26 H6 Z" fill="#4FA8C9"/></symbol>
+  </defs>
+  <rect x="0" y="0" width="2400" height="1080" fill="#FFFFFF"/>
+
+  <rect x="60" y="60" width="690" height="245" rx="14" fill="#F7F8FA" stroke="#E2E5EA" stroke-width="1.5"/>
+  <use href="#iconPlay" x="82" y="80" width="42" height="42"/>
+  <text x="134" y="106" font-size="21" font-weight="700" fill="#1B3A5C">Turkish Financial YouTube</text>
+  <text x="134" y="130" font-size="21" font-weight="700" fill="#1B3A5C">Ecosystem</text>
+
+  <g>
+    <circle cx="130" cy="185" r="27" fill="#EAF1F6" stroke="#D9A441" stroke-width="3"/>
+    <use href="#iconPerson" x="103" y="158" width="54" height="54"/>
+    <text x="130" y="222" font-size="12.5" font-weight="700" text-anchor="middle" fill="#1B3A5C">Tunc</text>
+    <text x="130" y="236" font-size="12.5" font-weight="700" text-anchor="middle" fill="#1B3A5C">Şatıroğlu</text>
+  </g>
+  <g>
+    <circle cx="290" cy="185" r="27" fill="#EAF1F6"/>
+    <use href="#iconPerson" x="263" y="158" width="54" height="54"/>
+    <text x="290" y="222" font-size="12.5" text-anchor="middle" fill="#374151">Atilla</text>
+    <text x="290" y="236" font-size="12.5" text-anchor="middle" fill="#374151">Yeşilada</text>
+  </g>
+  <g>
+    <circle cx="450" cy="185" r="27" fill="#EAF1F6"/>
+    <use href="#iconPerson" x="423" y="158" width="54" height="54"/>
+    <text x="450" y="222" font-size="12.5" text-anchor="middle" fill="#374151">Mert</text>
+    <text x="450" y="236" font-size="12.5" text-anchor="middle" fill="#374151">Başaran</text>
+  </g>
+  <g>
+    <circle cx="610" cy="185" r="27" fill="#EAF1F6"/>
+    <use href="#iconPerson" x="583" y="158" width="54" height="54"/>
+    <text x="610" y="222" font-size="12.5" text-anchor="middle" fill="#374151">Selçuk</text>
+    <text x="610" y="236" font-size="12.5" text-anchor="middle" fill="#374151">Geçer</text>
+  </g>
+
+  <line x1="94" y1="270" x2="700" y2="270" stroke="#E2E5EA" stroke-width="1"/>
+  <use href="#iconFilm" x="94" y="278" width="24" height="24"/>
+  <text x="124" y="296" font-size="17" font-weight="700" fill="#1B3A5C">955 Videos</text>
+  <text x="252" y="296" font-size="17" fill="#9AA3AF">-&gt;</text>
+  <use href="#iconChat" x="278" y="278" width="24" height="24"/>
+  <text x="308" y="296" font-size="17" font-weight="700" fill="#1B3A5C">17,566 Comments</text>
+
+  <polygon points="768,168 812,180 768,192" fill="#4FA8C9"/>
+  <rect x="855" y="60" width="690" height="245" rx="14" fill="#F7F8FA" stroke="#E2E5EA" stroke-width="1.5"/>
+  <use href="#iconCluster" x="895" y="90" width="52" height="52"/>
+  <text x="965" y="112" font-size="21" font-weight="700" fill="#1B3A5C">BERTopic Topic</text>
+  <text x="965" y="136" font-size="21" font-weight="700" fill="#1B3A5C">Modeling</text>
+  <text x="895" y="192" font-size="34" font-weight="800" fill="#2E6F95">128 topics</text>
+  <text x="895" y="216" font-size="15" fill="#374151">identified across the pooled corpus</text>
+  <text x="895" y="252" font-size="14" fill="#6B7280">Unsupervised topic extraction from</text>
+  <text x="895" y="272" font-size="14" fill="#6B7280">17,566 YouTube comments</text>
+
+  <polygon points="1563,168 1607,180 1563,192" fill="#4FA8C9"/>
+
+  <rect x="1650" y="60" width="690" height="245" rx="14" fill="#F7F8FA" stroke="#E2E5EA" stroke-width="1.5"/>
+  <use href="#iconSentiment" x="1690" y="90" width="52" height="52"/>
+  <text x="1760" y="112" font-size="21" font-weight="700" fill="#1B3A5C">BERT Sentiment</text>
+  <text x="1760" y="136" font-size="21" font-weight="700" fill="#1B3A5C">Classification</text>
+  <text x="1690" y="192" font-size="26" font-weight="800" fill="#2E6F95">Positive vs. Negative</text>
+  <text x="1690" y="216" font-size="15" fill="#374151">comment-level polarity</text>
+  <text x="1690" y="252" font-size="14" fill="#6B7280">Transformer-based, validated against</text>
+  <text x="1690" y="272" font-size="14" fill="#6B7280">human coding (Cohen's kappa = 0.947)</text>
+
+  <polygon points="1188,318 1200,346 1212,318" fill="#4FA8C9"/>
+
+  <text x="1200" y="378" font-size="25" font-weight="700" fill="#1B3A5C" text-anchor="middle">Variance Decomposition - Message vs. Messenger</text>
+
+  <rect x="1090" y="396" width="220" height="32" rx="16" fill="#1B3A5C"/>
+  <text x="1200" y="417" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">INVESTOR SENTIMENT</text>
+
+  <line x1="1200" y1="428" x2="1200" y2="470" stroke="#9AA3AF" stroke-width="4"/>
+  <line x1="950" y1="470" x2="1450" y2="470" stroke="#9AA3AF" stroke-width="5"/>
+  <circle cx="1200" cy="470" r="9" fill="#1B3A5C"/>
+  <line x1="950" y1="470" x2="950" y2="482" stroke="#9AA3AF" stroke-width="2.5"/>
+  <line x1="1450" y1="470" x2="1450" y2="482" stroke="#9AA3AF" stroke-width="2.5"/>
+
+  <line x1="1200" y1="690" x2="1200" y2="470" stroke="#9AA3AF" stroke-width="4"/>
+  <polygon points="1160,715 1240,715 1200,660" fill="#CBD2D9"/>
+  <rect x="1150" y="712" width="100" height="14" rx="4" fill="#B9C2CC"/>
+  <text x="950" y="502" font-size="27" font-weight="800" fill="#2E6F95" text-anchor="middle">MESSAGE</text>
+  <text x="950" y="522" font-size="13" font-style="italic" fill="#6B7280" text-anchor="middle">(financial topics, content,</text>
+  <text x="950" y="536" font-size="13" font-style="italic" fill="#6B7280" text-anchor="middle">economic issues)</text>
+  <use href="#iconNews" x="900" y="546" width="34" height="34"/>
+  <use href="#iconBars" x="1000" y="546" width="34" height="34"/>
+  <path d="M 885 588 Q 950 618 1015 588" stroke="#2E6F95" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <text x="1450" y="502" font-size="27" font-weight="800" fill="#5B6B84" text-anchor="middle">MESSENGER</text>
+  <text x="1450" y="522" font-size="13" font-style="italic" fill="#6B7280" text-anchor="middle">(credibility, opinion leadership,</text>
+  <text x="1450" y="536" font-size="13" font-style="italic" fill="#6B7280" text-anchor="middle">parasocial interaction)</text>
+  <use href="#iconMega" x="1400" y="546" width="34" height="34"/>
+  <use href="#iconTrust" x="1500" y="546" width="34" height="34"/>
+  <path d="M 1385 588 Q 1450 618 1515 588" stroke="#5B6B84" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <g>
+    <rect x="835" y="635" width="230" height="32" rx="16" fill="#EAF1F6" stroke="#CBD9E3"/>
+    <use href="#iconBook" x="845" y="641" width="20" height="20"/>
+    <text x="960" y="656" font-size="12.5" fill="#1B3A5C" text-anchor="middle" font-weight="600">Investor Sentiment Theory</text>
+  </g>
+  <g>
+    <rect x="835" y="678" width="230" height="32" rx="16" fill="#EAF1F6" stroke="#CBD9E3"/>
+    <use href="#iconBook" x="845" y="684" width="20" height="20"/>
+    <text x="960" y="699" font-size="12.5" fill="#1B3A5C" text-anchor="middle" font-weight="600">Limited Attention Theory</text>
+  </g>
+
+  <g>
+    <rect x="1300" y="635" width="200" height="32" rx="16" fill="#EEF0F3" stroke="#D5D9DF"/>
+    <use href="#iconBook" x="1308" y="641" width="20" height="20"/>
+    <text x="1410" y="656" font-size="12" fill="#374151" text-anchor="middle" font-weight="600">Source Credibility</text>
+  </g>
+  <g>
+    <rect x="1510" y="635" width="200" height="32" rx="16" fill="#EEF0F3" stroke="#D5D9DF"/>
+    <use href="#iconBook" x="1518" y="641" width="20" height="20"/>
+    <text x="1620" y="656" font-size="12" fill="#374151" text-anchor="middle" font-weight="600">Two-Step Flow Theory</text>
+  </g>
+  <g>
+    <rect x="1300" y="678" width="200" height="32" rx="16" fill="#EEF0F3" stroke="#D5D9DF"/>
+    <use href="#iconBook" x="1308" y="684" width="20" height="20"/>
+    <text x="1410" y="699" font-size="12" fill="#374151" text-anchor="middle" font-weight="600">Opinion Leadership</text>
+  </g>
+  <g>
+    <rect x="1510" y="678" width="200" height="32" rx="16" fill="#EEF0F3" stroke="#D5D9DF"/>
+    <use href="#iconBook" x="1518" y="684" width="20" height="20"/>
+    <text x="1620" y="699" font-size="12" fill="#374151" text-anchor="middle" font-weight="600">Parasocial Interaction</text>
+  </g>
+  <rect x="1760" y="470" width="300" height="110" rx="12" fill="#FDF6E9" stroke="#D9A441" stroke-width="1.5"/>
+  <use href="#iconStar" x="1778" y="486" width="34" height="34"/>
+  <text x="1822" y="502" font-size="15" font-weight="800" fill="#8A6114">Tunç Şatıroğlu</text>
+  <text x="1778" y="530" font-size="13" fill="#6B4E15">Strongest and most persistent</text>
+  <text x="1778" y="548" font-size="13" fill="#6B4E15">messenger effect - robust</text>
+  <text x="1778" y="566" font-size="13" fill="#6B4E15">across all estimation methods</text>
+
+  <text x="1200" y="775" font-size="19" font-weight="700" fill="#1B3A5C" text-anchor="middle">Variance Explained in Comment-Level Sentiment</text>
+
+  <text x="740" y="812" font-size="15" font-weight="700" fill="#1B3A5C" text-anchor="end">Topic (Message)</text>
+  <rect x="750" y="794" width="700" height="30" fill="#2E6F95" rx="3"/>
+  <text x="1465" y="815" font-size="16" font-weight="800" fill="#1B3A5C">24.4%</text>
+
+  <text x="740" y="856" font-size="15" font-weight="700" fill="#1B3A5C" text-anchor="end">Analyst (Messenger)</text>
+  <rect x="750" y="838" width="155" height="30" fill="#5B6B84" rx="3"/>
+  <text x="920" y="859" font-size="16" font-weight="800" fill="#1B3A5C">5.4%</text>
+
+  <text x="1200" y="895" font-size="13" font-style="italic" fill="#6B7280" text-anchor="middle">Full joint model R-sq = 25.9%; topic and analyst identity together leave ~74% of variance unexplained.</text>
+  <g>
+    <rect x="60" y="925" width="440" height="92" rx="10" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#iconCompare" x="76" y="951" width="40" height="40"/>
+    <text x="128" y="956" font-size="13" font-weight="700" fill="#1B3A5C">Topic explains substantially more</text>
+    <text x="128" y="975" font-size="13" font-weight="700" fill="#1B3A5C">variance than communicator identity</text>
+  </g>
+  <g>
+    <rect x="520" y="925" width="440" height="92" rx="10" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#iconCheck" x="536" y="951" width="40" height="40"/>
+    <text x="588" y="956" font-size="13" font-weight="700" fill="#1B3A5C">Communicator identity remains</text>
+    <text x="588" y="975" font-size="13" font-weight="700" fill="#1B3A5C">significant net of topic composition</text>
+  </g>
+  <g>
+    <rect x="980" y="925" width="440" height="92" rx="10" fill="#FDF6E9" stroke="#D9A441"/>
+    <use href="#iconStar" x="996" y="951" width="40" height="40"/>
+    <text x="1048" y="956" font-size="13" font-weight="700" fill="#8A6114">Şatıroğlu shows the strongest,</text>
+    <text x="1048" y="975" font-size="13" font-weight="700" fill="#8A6114">most persistent messenger effect</text>
+  </g>
+  <g>
+    <rect x="1440" y="925" width="440" height="92" rx="10" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#iconFlat" x="1456" y="951" width="40" height="40"/>
+    <text x="1508" y="956" font-size="13" font-weight="700" fill="#1B3A5C">No contemporaneous link between</text>
+    <text x="1508" y="975" font-size="13" font-weight="700" fill="#1B3A5C">sentiment and BIST100 returns</text>
+  </g>
+  <g>
+    <rect x="1900" y="925" width="440" height="92" rx="10" fill="#F7F8FA" stroke="#E2E5EA"/>
+    <use href="#iconForecast" x="1916" y="951" width="40" height="40"/>
+    <text x="1968" y="956" font-size="13" font-weight="700" fill="#1B3A5C">Sentiment Granger-predicts</text>
+    <text x="1968" y="975" font-size="13" font-weight="700" fill="#1B3A5C">short-term BIST100 returns</text>
+  </g>
+
+  <rect x="0" y="1030" width="2400" height="50" fill="#1B3A5C"/>
+  <text x="1200" y="1061" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">Investor sentiment in digital financial ecosystems is jointly shaped by message content and communicator identity.</text>
+</svg>

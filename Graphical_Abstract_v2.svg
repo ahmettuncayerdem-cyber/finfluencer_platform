@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 930" width="1000" height="930" font-family="Arial, Helvetica, sans-serif">
+  <title>Graphical Abstract v2: Message versus Messenger Effects on Investor Sentiment</title>
+  <defs>
+    <symbol id="p" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#EAF1F6"/><circle cx="20" cy="15" r="6.5" fill="#2E6F95"/><path d="M8 32 Q20 20 32 32 Z" fill="#2E6F95"/></symbol>
+    <symbol id="chat" viewBox="0 0 40 40"><path d="M6 8 H34 V26 H16 L9 33 V26 H6 Z" fill="#4FA8C9"/></symbol>
+    <symbol id="flat" viewBox="0 0 40 40"><path d="M6 20 Q13 13 20 20 T34 20" stroke="#5B6B84" stroke-width="3" fill="none"/></symbol>
+  </defs>
+  <rect x="0" y="0" width="1000" height="930" fill="#F4F5F7"/>
+  <text x="500" y="45" font-size="24" font-weight="700" fill="#1B3A5C" text-anchor="middle">4 Finfluencers</text>
+
+  <g>
+    <circle cx="380" cy="95" r="22" fill="#EAF1F6" stroke="#D9A441" stroke-width="3"/>
+    <use href="#p" x="358" y="73" width="44" height="44"/>
+    <text x="380" y="132" font-size="11" text-anchor="middle" fill="#374151">Tunç Şatıroğlu</text>
+  </g>
+  <g>
+    <circle cx="460" cy="95" r="22" fill="#EAF1F6"/>
+    <use href="#p" x="438" y="73" width="44" height="44"/>
+    <text x="460" y="132" font-size="11" text-anchor="middle" fill="#374151">Atilla Yeşilada</text>
+  </g>
+  <g>
+    <circle cx="540" cy="95" r="22" fill="#EAF1F6"/>
+    <use href="#p" x="518" y="73" width="44" height="44"/>
+    <text x="540" y="132" font-size="11" text-anchor="middle" fill="#374151">Mert Başaran</text>
+  </g>
+  <g>
+    <circle cx="620" cy="95" r="22" fill="#EAF1F6"/>
+    <use href="#p" x="598" y="73" width="44" height="44"/>
+    <text x="620" y="132" font-size="11" text-anchor="middle" fill="#374151">Selçuk Geçer</text>
+  </g>
+
+  <line x1="500" y1="150" x2="500" y2="182" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="490,182 510,182 500,196" fill="#9AA3AF"/>
+
+  <use href="#chat" x="350" y="207" width="22" height="22"/>
+  <text x="500" y="225" font-size="20" font-weight="700" fill="#1B3A5C" text-anchor="middle">17,566 Comments</text>
+
+  <line x1="500" y1="240" x2="500" y2="268" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="490,268 510,268 500,282" fill="#9AA3AF"/>
+
+  <rect x="290" y="288" width="420" height="60" rx="6" fill="#FFFFFF" stroke="#1B3A5C" stroke-width="2"/>
+  <text x="500" y="324" font-size="19" font-weight="700" fill="#1B3A5C" text-anchor="middle">BERTopic + BERT Model</text>
+
+  <line x1="500" y1="348" x2="500" y2="376" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="490,376 510,376 500,390" fill="#9AA3AF"/>
+  <rect x="90" y="395" width="380" height="120" rx="6" fill="#FFFFFF" stroke="#2E6F95" stroke-width="2.5"/>
+  <text x="280" y="430" font-size="21" font-weight="800" fill="#2E6F95" text-anchor="middle">MESSAGE</text>
+  <text x="280" y="455" font-size="14" fill="#374151" text-anchor="middle">Topic Effects</text>
+  <text x="280" y="488" font-size="23" font-weight="800" fill="#1B3A5C" text-anchor="middle">R&#178; = 24.4%</text>
+
+  <rect x="530" y="395" width="380" height="120" rx="6" fill="#FFFFFF" stroke="#5B6B84" stroke-width="2.5"/>
+  <text x="720" y="430" font-size="21" font-weight="800" fill="#5B6B84" text-anchor="middle">MESSENGER</text>
+  <text x="720" y="455" font-size="14" fill="#374151" text-anchor="middle">Analyst Effect</text>
+  <text x="720" y="488" font-size="23" font-weight="800" fill="#1B3A5C" text-anchor="middle">R&#178; = 5.4%</text>
+
+  <line x1="280" y1="515" x2="490" y2="555" stroke="#2E6F95" stroke-width="2.5"/>
+  <line x1="720" y1="515" x2="510" y2="555" stroke="#5B6B84" stroke-width="2.5"/>
+  <polygon points="480,548 500,555 484,568" fill="#2E6F95"/>
+  <polygon points="520,548 500,555 516,568" fill="#5B6B84"/>
+
+  <rect x="390" y="562" width="220" height="46" rx="23" fill="#1B3A5C"/>
+  <text x="500" y="591" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Investor Sentiment</text>
+
+  <line x1="500" y1="608" x2="500" y2="638" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="490,638 510,638 500,652" fill="#9AA3AF"/>
+  <use href="#flat" x="472" y="656" width="26" height="26"/>
+  <text x="500" y="700" font-size="20" font-weight="700" fill="#1B3A5C" text-anchor="middle">BIST100</text>
+  <text x="500" y="722" font-size="13" font-style="italic" fill="#6B7280" text-anchor="middle">(no contemporaneous effect)</text>
+
+  <line x1="500" y1="732" x2="500" y2="760" stroke="#9AA3AF" stroke-width="2.5"/>
+  <polygon points="490,760 510,760 500,774" fill="#9AA3AF"/>
+
+  <rect x="270" y="780" width="460" height="80" rx="8" fill="#FDF6E9" stroke="#D9A441" stroke-width="2"/>
+  <text x="500" y="815" font-size="20" font-weight="800" fill="#8A6114" text-anchor="middle">Granger Predictability</text>
+  <text x="500" y="840" font-size="13" fill="#6B4E15" text-anchor="middle">Sentiment predicts short-term BIST100 returns</text>
+
+  <rect x="0" y="878" width="1000" height="52" fill="#1B3A5C"/>
+  <text x="500" y="901" font-size="14.5" font-weight="700" fill="#FFFFFF" text-anchor="middle">Investor sentiment in digital financial ecosystems is jointly shaped by</text>
+  <text x="500" y="920" font-size="14.5" font-weight="700" fill="#FFFFFF" text-anchor="middle">message content and communicator identity.</text>
+</svg>
