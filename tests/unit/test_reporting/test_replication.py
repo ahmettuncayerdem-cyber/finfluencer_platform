@@ -20,12 +20,28 @@ from pathlib import Path
 
 import pytest
 
+import json
+
 from finfluencer.core.config import load_settings
-from finfluencer.reporting.replication import EXPORT_SOURCES, build_replication_package
+from finfluencer.core.exceptions import ReproducibilityError
+from finfluencer.reporting.replication import (
+    EXPORT_SOURCES,
+    MANIFEST_SCHEMA_VERSION,
+    build_replication_package,
+    compute_checksums,
+    create_archive,
+    generate_codebook,
+    validate_replication_package,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SETTINGS = _REPO_ROOT / "config" / "settings.yaml"
 _ANALYSTS = _REPO_ROOT / "config" / "analysts.yaml"
+
+#: MANIFEST.json, README.md, CODEBOOK.md, codebook.json, CHECKSUMS.sha256 --
+#: the package-scaffolding files build_replication_package writes at the
+#: package root, in addition to the four EXPORT_SOURCES sub-directories.
+_N_SCAFFOLDING_FILES = 5
 
 
 def _set_tmp_output_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -162,7 +178,12 @@ class TestSuccessfulExport:
         cfg = _cfg(tmp_path, monkeypatch)
         _write_fake_report_outputs(cfg, n_files_per_dir=5)
         result = build_replication_package(cfg)
-        assert result["n_items"] == 5 * len(EXPORT_SOURCES)
+        # Sprint 2 (Product Engineering): n_items now also counts the five
+        # package-scaffolding files build_replication_package writes at the
+        # package root -- MANIFEST.json, README.md, CODEBOOK.md,
+        # codebook.json, CHECKSUMS.sha256 -- in addition to the copied
+        # source files, since n_items is a recursive file count under dest.
+        assert result["n_items"] == 5 * len(EXPORT_SOURCES) + _N_SCAFFOLDING_FILES
 
     def test_file_contents_are_preserved_byte_for_byte(self, tmp_path, monkeypatch):
         cfg = _cfg(tmp_path, monkeypatch)
@@ -223,12 +244,12 @@ class TestOverwriteSemantics:
         monkeypatch.setattr(replication_module, "generate_run_id", lambda: "fixed_run_id")
 
         first = build_replication_package(cfg)
-        assert first["n_items"] == len(EXPORT_SOURCES)
+        assert first["n_items"] == len(EXPORT_SOURCES) + _N_SCAFFOLDING_FILES
 
         _write_fake_report_outputs(cfg, n_files_per_dir=3)
         second = build_replication_package(cfg, force=True)
         assert second["exported_to"] == first["exported_to"]
-        assert second["n_items"] == 3 * len(EXPORT_SOURCES)
+        assert second["n_items"] == 3 * len(EXPORT_SOURCES) + _N_SCAFFOLDING_FILES
 
 
 # =============================================================================
@@ -246,3 +267,315 @@ class TestModuleIndependence:
         _write_fake_report_outputs(cfg)
         result = build_replication_package(cfg)
         assert result["exported_to"].exists()
+
+
+# =============================================================================
+# Sprint 2 (Product Engineering): embedded manifest
+# =============================================================================
+
+
+class TestEmbeddedManifest:
+    def test_manifest_json_written_with_schema_version(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
+        assert manifest["manifest_schema_version"] == MANIFEST_SCHEMA_VERSION
+        assert "export_provenance" in manifest
+        assert manifest["export_provenance"]["stage"] == "export"
+        assert manifest["historical_run_manifests"] == []
+
+    def test_manifest_embeds_replication_target_and_zenodo_config(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
+        extras = manifest["export_provenance"]["extras"]
+        assert extras["replication_target"] == cfg.settings.replication.target.value
+        assert "replication_zenodo" in extras
+
+
+# =============================================================================
+# Sprint 2 (Product Engineering): codebook
+# =============================================================================
+
+
+class TestCodebook:
+    def test_codebook_describes_every_copied_file(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg, n_files_per_dir=2)
+        result = build_replication_package(cfg)
+        codebook = json.loads(result["codebook_path"].read_text(encoding="utf-8"))
+        assert len(codebook) == 2 * len(EXPORT_SOURCES)
+        for name in EXPORT_SOURCES:
+            assert f"{name}/file_0.txt" in codebook
+
+    def test_codebook_excludes_its_own_scaffolding_files(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        codebook = json.loads(result["codebook_path"].read_text(encoding="utf-8"))
+        assert "MANIFEST.json" not in codebook
+        assert "CHECKSUMS.sha256" not in codebook
+
+    def test_generate_codebook_describes_csv_columns(self, tmp_path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "table.csv").write_text("a,b\n1,x\n2,y\n3,x\n", encoding="utf-8")
+        codebook = generate_codebook(pkg)
+        entry = codebook["table.csv"]
+        assert entry["format"] == "csv"
+        assert entry["n_rows"] == 3
+        names = [c["name"] for c in entry["columns"]]
+        assert names == ["a", "b"]
+
+    def test_generate_codebook_never_raises_on_unreadable_file(self, tmp_path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "broken.csv").write_bytes(b"\x00\x01not,a,real\xffcsv")
+        codebook = generate_codebook(pkg)
+        assert "broken.csv" in codebook
+        assert codebook["broken.csv"]["format"] in ("unknown", "csv")
+
+    def test_codebook_markdown_rendered_alongside_json(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        md_path = result["exported_to"] / "CODEBOOK.md"
+        assert md_path.is_file()
+        assert "# Codebook" in md_path.read_text(encoding="utf-8")
+
+
+# =============================================================================
+# Sprint 2 (Product Engineering): checksums
+# =============================================================================
+
+
+class TestChecksums:
+    def test_checksums_file_written_in_sha256sum_format(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        lines = result["checksums_path"].read_text(encoding="utf-8").splitlines()
+        assert lines
+        for line in lines:
+            digest, _, rel = line.partition("  ")
+            assert len(digest) == 64
+            assert rel
+
+    def test_compute_checksums_excludes_the_checksums_file_itself(self, tmp_path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "a.txt").write_text("hello", encoding="utf-8")
+        (pkg / "CHECKSUMS.sha256").write_text("stale content", encoding="utf-8")
+        checksums = compute_checksums(pkg)
+        assert "a.txt" in checksums
+        assert "CHECKSUMS.sha256" not in checksums
+
+    def test_readme_is_not_checksummed_against_itself_inconsistently(self, tmp_path, monkeypatch):
+        # README.md IS checksummed (it's a real, meaningful file) -- this
+        # test just confirms it round-trips correctly through validation.
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        assert "README.md" in {
+            line.partition("  ")[2]
+            for line in result["checksums_path"].read_text(encoding="utf-8").splitlines()
+        }
+
+
+# =============================================================================
+# Sprint 2 (Product Engineering): archive
+# =============================================================================
+
+
+class TestArchive:
+    def test_archive_created_alongside_not_inside_the_package(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        archive_path = result["archive_path"]
+        assert archive_path.parent == result["exported_to"].parent
+        assert archive_path.suffix == ".zip"
+
+    def test_no_archive_flag_skips_archive_creation(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg, archive=False)
+        assert "archive_path" not in result
+
+    def test_create_archive_rejects_unsupported_format(self, tmp_path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "a.txt").write_text("x", encoding="utf-8")
+        with pytest.raises(ValueError, match="tar.gz"):
+            create_archive(pkg, fmt="tar.gz")
+
+    def test_archive_contains_every_package_file(self, tmp_path, monkeypatch):
+        import zipfile
+
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        with zipfile.ZipFile(result["archive_path"]) as zf:
+            names = set(zf.namelist())
+        assert "README.md" in names
+        assert "MANIFEST.json" in names
+        assert f"{EXPORT_SOURCES[0]}/file_0.txt" in names
+
+
+# =============================================================================
+# Sprint 2 (Product Engineering): self-validation
+# =============================================================================
+
+
+class TestSelfValidation:
+    def test_freshly_built_package_validates_ok(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        assert result["validation"]["ok"] is True
+        assert result["validation"]["issues"] == []
+
+    def test_no_validate_flag_skips_validation(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg, validate=False)
+        assert "validation" not in result
+
+    def test_validate_replication_package_detects_tampered_file(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        dest = result["exported_to"]
+
+        tampered = dest / EXPORT_SOURCES[0] / "file_0.txt"
+        tampered.write_text("TAMPERED", encoding="utf-8")
+
+        report = validate_replication_package(dest)
+        assert report.ok is False
+        assert any(f"{EXPORT_SOURCES[0]}/file_0.txt" in issue for issue in report.issues)
+
+    def test_validate_replication_package_detects_missing_required_file(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        dest = result["exported_to"]
+
+        (dest / "README.md").unlink()
+
+        report = validate_replication_package(dest)
+        assert report.ok is False
+        assert any("README.md" in issue for issue in report.issues)
+
+    def test_build_raises_reproducibility_error_when_self_validation_fails(self, tmp_path, monkeypatch):
+        """Forces the self-validation-failure path inside
+        build_replication_package itself (not just validate_replication_package
+        standalone, already covered above) by monkeypatching
+        validate_replication_package to simulate a corrupted build."""
+        import finfluencer.reporting.replication as replication_module
+
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+
+        monkeypatch.setattr(
+            replication_module,
+            "validate_replication_package",
+            lambda package_dir: replication_module.ValidationReport(ok=False, issues=["simulated corruption"]),
+        )
+        with pytest.raises(ReproducibilityError, match="self-validation"):
+            build_replication_package(cfg)
+
+    def test_validate_replication_package_standalone_on_valid_package(self, tmp_path, monkeypatch):
+        """Confirms validate_replication_package works independent of
+        build_replication_package having just run in this same process
+        -- e.g. against a package re-extracted elsewhere."""
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        report = validate_replication_package(result["exported_to"])
+        assert report.ok is True
+
+
+# =============================================================================
+# Sprint 2 (Product Engineering): publication-stage gate
+# =============================================================================
+
+
+class TestPublicationStageGate:
+    def test_exploratory_stage_default_does_not_require_clean_git_tree(self, tmp_path, monkeypatch):
+        # config/settings.yaml's default replication.stage is "exploratory";
+        # the sandbox/CI working tree is routinely dirty during development,
+        # so this must not raise.
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        assert result["exported_to"].exists()
+
+
+# =============================================================================
+# Sprint 2 (Product Engineering): reproducibility
+# =============================================================================
+
+
+class TestReproducibility:
+    """Generating the package twice from identical, already-materialized
+    report outputs must produce equivalent contents except for the
+    explicitly documented volatile fields in MANIFEST.json (run_id,
+    timestamp_utc, extras) -- Product Engineering Sprint 2's own
+    reproducibility requirement."""
+
+    def test_two_builds_from_identical_inputs_match_every_checksum_except_manifest(
+        self, tmp_path, monkeypatch,
+    ):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg, n_files_per_dir=2)
+
+        first = build_replication_package(cfg)
+        second = build_replication_package(cfg)
+
+        first_checksums = compute_checksums(first["exported_to"])
+        second_checksums = compute_checksums(second["exported_to"])
+
+        assert set(first_checksums.keys()) == set(second_checksums.keys())
+
+        differing = {
+            rel for rel in first_checksums
+            if first_checksums[rel] != second_checksums[rel]
+        }
+        assert differing == {"MANIFEST.json"}
+
+    def test_manifest_environment_and_git_fields_match_across_builds(self, tmp_path, monkeypatch):
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+
+        first = build_replication_package(cfg)
+        second = build_replication_package(cfg)
+
+        first_manifest = json.loads(first["manifest_path"].read_text(encoding="utf-8"))
+        second_manifest = json.loads(second["manifest_path"].read_text(encoding="utf-8"))
+
+        for key in ("environment", "git", "config_hashes", "study"):
+            assert first_manifest["export_provenance"][key] == second_manifest["export_provenance"][key], key
+
+        assert first_manifest["export_provenance"]["run_id"] != second_manifest["export_provenance"]["run_id"]
+
+    def test_archive_internal_file_order_is_sorted_and_deterministic(self, tmp_path, monkeypatch):
+        import zipfile
+
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        with zipfile.ZipFile(result["archive_path"]) as zf:
+            names = zf.namelist()
+        assert names == sorted(names)
+
+    def test_archive_entries_use_fixed_timestamp_not_export_time(self, tmp_path, monkeypatch):
+        import zipfile
+
+        cfg = _cfg(tmp_path, monkeypatch)
+        _write_fake_report_outputs(cfg)
+        result = build_replication_package(cfg)
+        with zipfile.ZipFile(result["archive_path"]) as zf:
+            for info in zf.infolist():
+                assert info.date_time == (1980, 1, 1, 0, 0, 0)
