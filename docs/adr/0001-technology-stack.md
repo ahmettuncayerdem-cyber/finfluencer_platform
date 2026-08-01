@@ -1,7 +1,7 @@
 # ADR 0001 — Technology Stack for the Six-Layer Platform
 
 **Date:** 2026-08-01
-**Status:** Proposed — awaiting human sign-off (BACKLOG.md T-004; Playbook Part E, ADR Policy: Claude drafts, human decides).
+**Status:** Accepted — 2026-08-01 (BACKLOG.md T-004; Playbook Part E, ADR Policy: Claude drafted, human decided). This ADR is not reopened by acceptance — the open question noted below (React vs. Svelte/Vue) is accepted as-is, not resolved further, per the operator's explicit instruction not to redesign it.
 **Drafted by:** Claude, grounded in direct inspection of `pyproject.toml` and the existing `src/finfluencer/` codebase, not a from-scratch survey.
 
 ## Context
