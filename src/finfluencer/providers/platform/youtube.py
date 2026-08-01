@@ -17,8 +17,13 @@ Design decisions
   ``quota.ensure_capacity`` (pre-flight) and ``quota.spend`` (post-success).
   Quota bookkeeping is the provider's responsibility; the caller only
   supplies the tracker.
-* **Retry policy.** Only transient errors (RateLimit, NetworkError) are
-  retried; ``QuotaExhaustedError`` and ``ResourceNotFoundError`` propagate.
+* **Retry policy** (BACKLOG.md T-016). Only transient errors (``RateLimitError``,
+  ``NetworkError``) are retried, with bounded attempts and exponential
+  backoff via ``tenacity``; ``QuotaExhaustedError``, ``ResourceNotFoundError``,
+  ``CommentsDisabledError`` and ``AuthenticationError`` propagate immediately.
+  Matches the ``PlatformProvider`` Protocol's own contract (``base.py``):
+  "Transient errors are retried inside the implementation before
+  propagating."
 * **Day-truncation.** Comment ``posted_date`` is truncated to
   ``YYYY-MM-DD`` at ingest (Methods §3.11 ethics compliance).
 """
@@ -27,6 +32,8 @@ from __future__ import annotations
 
 import os
 from typing import Any, Callable, Iterable
+
+import tenacity
 
 from finfluencer.core.budgets import QuotaTracker
 from finfluencer.core.contracts import CommentRecord, VideoRecord
@@ -88,6 +95,9 @@ class YouTubePlatformProvider:
         shorts_max_duration_sec: int = 60,
         promo_keywords: Iterable[str] | None = None,
         client_factory: Callable[[str], Any] = _default_client_factory,
+        retry_max_attempts: int = 3,
+        retry_wait_initial_sec: float = 0.5,
+        retry_wait_max_sec: float = 4.0,
     ) -> None:
         api_key = api_key or os.environ.get("YT_API_KEY", "")
         if not api_key:
@@ -98,6 +108,13 @@ class YouTubePlatformProvider:
         self.quota = quota_tracker
         self.shorts_max_duration_sec = shorts_max_duration_sec
         self.promo_keywords = tuple((k or "").lower() for k in (promo_keywords or ()))
+        # T-016: bounded retry for transient errors only. Defaults are
+        # conservative production values; callers (including tests) may
+        # override for faster/slower backoff without changing behavior for
+        # anyone who doesn't.
+        self._retry_max_attempts = retry_max_attempts
+        self._retry_wait_initial_sec = retry_wait_initial_sec
+        self._retry_wait_max_sec = retry_wait_max_sec
 
     # -- quota helpers ----------------------------------------------------
 
@@ -112,7 +129,29 @@ class YouTubePlatformProvider:
     # -- HTTP execution with typed error mapping --------------------------
 
     def _execute(self, request: Any) -> Any:
-        """Execute a googleapiclient request and map HttpError → typed exceptions."""
+        """Execute a googleapiclient request, retrying transient failures.
+
+        T-016: retries only ``RateLimitError``/``NetworkError`` (bounded
+        attempts, exponential backoff) before propagating -- everything else
+        raised by :meth:`_execute_once` (``QuotaExhaustedError``,
+        ``ResourceNotFoundError``, ``CommentsDisabledError``,
+        ``AuthenticationError``, generic ``CollectionError``) propagates on
+        the first attempt, matching this module's own documented retry
+        policy and the ``PlatformProvider`` Protocol's contract.
+        """
+        retrying = tenacity.Retrying(
+            retry=tenacity.retry_if_exception_type((RateLimitError, NetworkError)),
+            stop=tenacity.stop_after_attempt(self._retry_max_attempts),
+            wait=tenacity.wait_exponential(
+                multiplier=self._retry_wait_initial_sec,
+                max=self._retry_wait_max_sec,
+            ),
+            reraise=True,
+        )
+        return retrying(self._execute_once, request)
+
+    def _execute_once(self, request: Any) -> Any:
+        """Execute a googleapiclient request once and map HttpError → typed exceptions."""
         try:
             return request.execute()
         except Exception as e:  # noqa: BLE001

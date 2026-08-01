@@ -51,13 +51,20 @@ class _FakeHttpError(Exception):
             self.resp = SimpleNamespace(status=status)
 
 
-def _make_provider(client: Any = None) -> YouTubePlatformProvider:
+def _make_provider(client: Any = None, **retry_kwargs: Any) -> YouTubePlatformProvider:
     """Construct a provider with no real API key requirement and a stub
     client_factory that returns `client` (or a bare sentinel if the test
-    doesn't need one, e.g. resolve_channel's legacy-URL short-circuit)."""
+    doesn't need one, e.g. resolve_channel's legacy-URL short-circuit).
+
+    `retry_kwargs` (T-016) lets retry tests override `retry_max_attempts` /
+    `retry_wait_initial_sec` / `retry_wait_max_sec` -- e.g. to keep retry
+    tests fast (near-zero wait) without changing the class's own
+    production-conservative defaults.
+    """
     return YouTubePlatformProvider(
         api_key="fake-key-for-tests",
         client_factory=lambda _api_key: client if client is not None else object(),
+        **retry_kwargs,
     )
 
 
@@ -222,7 +229,11 @@ class TestExecuteErrorClassification:
             provider._execute(req)
 
     def test_403_rate_limited(self):
-        provider = _make_provider()
+        # T-016: retry_max_attempts=1 keeps this test instant -- the retry
+        # loop's own behavior (does it retry at all, and how many times) is
+        # covered separately in TestRetryBehavior below; this test's job is
+        # only the exception-type classification, unchanged.
+        provider = _make_provider(retry_max_attempts=1)
         req = _RaisingRequest(_FakeHttpError(403, "User rate limit exceeded."))
         with pytest.raises(RateLimitError):
             provider._execute(req)
@@ -234,7 +245,7 @@ class TestExecuteErrorClassification:
             provider._execute(req)
 
     def test_429_rate_limited(self):
-        provider = _make_provider()
+        provider = _make_provider(retry_max_attempts=1)  # T-016: see note above
         req = _RaisingRequest(_FakeHttpError(429, "Too Many Requests"))
         with pytest.raises(RateLimitError):
             provider._execute(req)
@@ -251,7 +262,7 @@ class TestExecuteErrorClassification:
             provider._execute(req)
 
     def test_5xx_is_network_error(self):
-        provider = _make_provider()
+        provider = _make_provider(retry_max_attempts=1)  # T-016: see note above
         req = _RaisingRequest(_FakeHttpError(503, "Service Unavailable"))
         with pytest.raises(NetworkError):
             provider._execute(req)
@@ -262,6 +273,93 @@ class TestExecuteErrorClassification:
         req = _RaisingRequest(RuntimeError("totally unexpected failure"))
         with pytest.raises(CollectionError):
             provider._execute(req)
+
+
+# ============================================================================
+# (c-2) T-016: retry policy -- transient errors retried, non-transient not
+# ============================================================================
+
+
+class _FlakyRequest:
+    """A request whose `.execute()` result/exception varies by call number --
+    proves the retry loop actually retries (not just classifies), and that it
+    stops retrying (or never starts) for the right exception types."""
+
+    def __init__(self, outcomes: list[Exception | dict]) -> None:
+        self._outcomes = outcomes
+        self.call_count = 0
+
+    def execute(self) -> Any:
+        self.call_count += 1
+        outcome = self._outcomes[self.call_count - 1]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+class TestRetryBehavior:
+    def test_rate_limit_error_is_retried_then_succeeds(self):
+        # Fails twice with a retryable error, succeeds on the third call.
+        provider = _make_provider(retry_max_attempts=3, retry_wait_initial_sec=0.0)
+        req = _FlakyRequest(
+            [
+                _FakeHttpError(429, "Too Many Requests"),
+                _FakeHttpError(429, "Too Many Requests"),
+                {"items": []},
+            ],
+        )
+        result = provider._execute(req)
+        assert result == {"items": []}
+        assert req.call_count == 3
+
+    def test_network_error_is_retried_then_succeeds(self):
+        provider = _make_provider(retry_max_attempts=3, retry_wait_initial_sec=0.0)
+        req = _FlakyRequest(
+            [
+                _FakeHttpError(503, "Service Unavailable"),
+                {"items": []},
+            ],
+        )
+        result = provider._execute(req)
+        assert result == {"items": []}
+        assert req.call_count == 2
+
+    def test_rate_limit_error_still_raises_after_attempts_exhausted(self):
+        provider = _make_provider(retry_max_attempts=2, retry_wait_initial_sec=0.0)
+        req = _FlakyRequest(
+            [
+                _FakeHttpError(429, "Too Many Requests"),
+                _FakeHttpError(429, "Too Many Requests"),
+                _FakeHttpError(429, "Too Many Requests"),  # never reached
+            ],
+        )
+        with pytest.raises(RateLimitError):
+            provider._execute(req)
+        assert req.call_count == 2  # stopped after retry_max_attempts, not 3
+
+    def test_quota_exhausted_is_not_retried(self):
+        provider = _make_provider(retry_max_attempts=3, retry_wait_initial_sec=0.0)
+        req = _FlakyRequest(
+            [
+                _FakeHttpError(403, "The request cannot be completed because you have exceeded your quota."),
+                {"items": []},  # would succeed if (incorrectly) retried
+            ],
+        )
+        with pytest.raises(QuotaExhaustedError):
+            provider._execute(req)
+        assert req.call_count == 1  # propagated immediately, no retry attempted
+
+    def test_resource_not_found_is_not_retried(self):
+        provider = _make_provider(retry_max_attempts=3, retry_wait_initial_sec=0.0)
+        req = _FlakyRequest(
+            [
+                _FakeHttpError(404, "Not Found"),
+                {"items": []},
+            ],
+        )
+        with pytest.raises(ResourceNotFoundError):
+            provider._execute(req)
+        assert req.call_count == 1
 
 
 # ============================================================================

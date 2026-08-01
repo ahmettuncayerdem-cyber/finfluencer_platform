@@ -84,12 +84,18 @@ command itself.
   `collect/main.py::run_pipeline`'s existing behavior exactly) — unchanged legacy behavior, not
   a new secret-handling decision, but worth a fresh look whenever secret management is
   formalized (`PRODUCT_ARCHITECTURE.md` §16.19).
-- **No retry loop exists for transient errors, despite the docstring claiming one** —
-  `youtube.py`'s own module docstring states "Only transient errors (RateLimit, NetworkError)
-  are retried," but no retry loop or `tenacity` usage exists anywhere in `providers/platform/
-  youtube.py` or `collect/*.py` (confirmed by direct search during T-015). Discovered, not
-  introduced, by T-015; documented here so it is not mistaken for new information later.
-  Revisit trigger: T-016 (quota/rate-limit handling and retry policy), BACKLOG.md.
+- **Retry loop implemented (T-016), closing the gap T-015 found.** `youtube.py::_execute` now
+  wraps the existing HTTP-error → typed-exception classification (`_execute_once`, renamed from
+  the old `_execute` body) in a `tenacity.Retrying` loop, retrying only `RateLimitError`/
+  `NetworkError` with bounded attempts and exponential backoff; `QuotaExhaustedError`,
+  `ResourceNotFoundError`, `CommentsDisabledError`, `AuthenticationError` propagate on the first
+  attempt, unchanged. Three new optional constructor kwargs (`retry_max_attempts`,
+  `retry_wait_initial_sec`, `retry_wait_max_sec`), all with conservative production defaults —
+  no existing caller (`build_provider_and_quota`, `live_provider.py`, the registry) needed to
+  change. Deliberately implemented *inside* `youtube.py` rather than as a wrapping decorator: the
+  `PlatformProvider` Protocol's own docstring (`providers/platform/base.py`) already states
+  "Transient errors are retried inside the implementation before propagating" — a decorator would
+  have contradicted that existing contract rather than fulfilled it.
 - **Live-network half of T-015's own Verification line could not be executed in the
   implementation sandbox** — that sandbox's outbound proxy returns `403` on `CONNECT` to
   `googleapis.com` (confirmed via direct `curl`, and again via a real `httplib2.socks.HTTPError`
