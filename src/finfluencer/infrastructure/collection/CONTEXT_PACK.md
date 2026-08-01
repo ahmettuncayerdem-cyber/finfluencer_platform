@@ -105,6 +105,17 @@ command itself.
   correct up to the network boundary by `tests/unit/test_infrastructure/test_collection/
   test_live_provider.py`'s stubbed-client tests. Revisit trigger: run
   `scripts/t015_live_smoke_test.py` in an environment with real egress to `googleapis.com`.
+- **T-017: real-`SIGKILL` interruption/resume proven against the live-wired chain, network
+  transport stubbed.** `tests/integration/test_t017_live_interruption.py` + `_t017_worker.py`
+  extend T-013's real-subprocess-kill technique to the live-provider path (T-015/T-016) instead
+  of `FixtureCollectionProvider` — only `googleapiclient.discovery.build` is stubbed (same
+  boundary `test_live_provider.py` already stubs), so the registry, `YouTubePlatformProvider`
+  (including T-016's retry loop), `QuotaTracker`, `CollectionEngineAdapter`, and
+  `CheckpointManager` all run for real. Also proves a transient 429 on the very first network
+  call still lets the run complete, through this same full chain. The genuine real-network,
+  real-timing half remains environment-blocked in this sandbox (same proxy constraint as T-015,
+  re-confirmed via `scripts/t017_live_interruption_manual.py`, not a new finding) — revisit
+  trigger: run that script in an environment with real egress.
 
 ## Gotchas
 
