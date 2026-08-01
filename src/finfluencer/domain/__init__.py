@@ -27,11 +27,18 @@ BACKLOG.md T-009 (CreateProject command): ``finfluencer.domain.repositories`` ad
 ``CreateProjectOrchestrator`` depends on. No concrete implementation exists anywhere yet --
 Persistence Layer work is explicitly out of scope until a later task.
 
+BACKLOG.md T-010 (Collection Engine adapter): ``finfluencer.domain.collection_engine`` adds
+``ICollectionEngine`` and ``CollectionOutcome`` -- the interface the Infrastructure Collection
+Engine adapter implements and a future ``StartCollectionRun`` orchestrator (T-011) will depend
+on. Follows the same Domain-defines/Infrastructure-implements pattern as ``IAIProvider``
+(section 12.1 line 839), applied to the Collection Engine instead of an AI provider.
+
 This top-level package intentionally re-exports nothing: import from
-``finfluencer.domain.entities`` or ``finfluencer.domain.repositories`` directly. No mandatory
-cross-vendor AI architecture review (IMPLEMENTATION_PLAYBOOK.md Part B.1) has yet been
-performed against either change from a genuinely different vendor/session -- BACKLOG.md records
-this as an open item, not a satisfied gate.
+``finfluencer.domain.entities``, ``finfluencer.domain.repositories``, or
+``finfluencer.domain.collection_engine`` directly. No mandatory cross-vendor AI architecture
+review (IMPLEMENTATION_PLAYBOOK.md Part B.1) has yet been performed against any of these changes
+from a genuinely different vendor/session -- BACKLOG.md records this as an open item, not a
+satisfied gate.
 """
 
 from __future__ import annotations

@@ -6,13 +6,19 @@ logging, audit, configuration -- section 12.2).
 
 Allowed dependencies: Domain Layer (implements its interfaces); any external SDK/library -- the
 only layer permitted to.
-Forbidden dependencies: none named by IG-001 for this layer specifically -- IG-001
-(IMPLEMENTATION_PLAYBOOK.md section 0) restricts what may import *from* infrastructure
-(presentation, api, domain), not what infrastructure itself may import.
+Forbidden dependencies: PRODUCT_ARCHITECTURE.md section 12.1 line 845 names Presentation and API
+("never calls upward -- a job worker doesn't know it was triggered by an HTTP request, only
+that Application dispatched it") -- not mechanically enforced by
+scripts/check_layer_dependencies.py's IG-001 checker, which restricts what may import *from*
+infrastructure (presentation, api, domain), not what infrastructure itself may import. Honored
+as a textual rule regardless, the same discipline applied to Application in BACKLOG.md T-009.
 
-Empty by design (BACKLOG.md T-006): the first adapter wraps collect/ and providers/platform/
-youtube.py (BACKLOG.md T-010), reusing tested existing code per IMPLEMENTATION_ROADMAP.md
-section 3's reuse classification -- not rewritten here, not speculated on ahead of time.
+BACKLOG.md T-010 (Collection Engine adapter): ``finfluencer.infrastructure.collection`` wraps
+`collect/` + `providers/platform/*` behind ``ICollectionEngine``
+(``finfluencer.domain.collection_engine``), reusing tested existing code per
+IMPLEMENTATION_ROADMAP.md section 3's reuse classification -- not rewritten here. Fixture-backed
+only in this task (no live network dependency yet, per BACKLOG.md T-010's own scope) -- a real
+YouTube-backed provider adapter is a later, not-yet-numbered task.
 """
 
 from __future__ import annotations
