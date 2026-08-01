@@ -57,7 +57,7 @@
 
 **Environment note:** this sandbox's mount of the repository cannot `unlink()` files (git's own lock/temp-object cleanup fails with `Operation not permitted`; confirmed not project-specific — `rm` and `mv`-as-delete both fail the same way on any file). `mv`-to-rename worked as a manual workaround for stale `index.lock`/`HEAD.lock` files each time git left one behind; `git fsck --full` after the commit shows only harmless dangling objects, no corruption. Future git writes in this same sandbox session will likely need the same manual lock-clearing step.
 
-### T-002 — Verify test suite in a real environment — **BLOCKED (environment), attempted 2026-08-01**
+### T-002 — Verify test suite in a real environment — **BLOCKED (environment), re-attempted 2026-08-01**
 **Purpose:** replace the stale 2026-07-30 historical pass rate with a current, trustworthy result.
 **Depends on:** T-001 ✅ closed.
 **Priority:** P0. **Effort:** S (environment setup + one full run, ~1 day).
@@ -66,15 +66,17 @@
 **Verification:** captured pytest output file, timestamped after T-001's commit.
 **Architecture:** n/a. **Roadmap:** §7 Risk R-3. **Playbook:** Part D, Testing Policy.
 
-**Status:** genuinely blocked in this sandbox, not silently skipped — confirmed again this session: this environment has Python 3.10.12; `pyproject.toml` requires `>=3.11,<3.14`, and the full dependency stack (pydantic, structlog, torch, transformers, tenacity, etc.) is not installed here. Running pytest under a non-conforming interpreter would produce a number that looks like verification but isn't one. Stays open, needs execution in the real dev environment (or a properly provisioned CI container) — not something to fake past.
+**Status, refined 2026-08-01:** root cause is more precise than first recorded. This sandbox has Python 3.10.12 only; `pyproject.toml` requires `>=3.11,<3.14`. `uv` (a Python version manager, no root needed) is present and lists 3.11.15 as installable, but the download fails with a network/connection error (`uv python install 3.11` → `tunnel error: unsuccessful` reaching `github.com` release assets) — PyPI itself is reachable (pip installs succeeded), but GitHub release-asset downloads are not, in this sandbox's network allowlist. Not a missing-tool problem, a network-restriction problem. Stays open, needs the real dev environment or a CI container with unrestricted network / a pre-provisioned 3.11+ interpreter.
 
-### T-003 — Align Python version constraint — **BLOCKED (environment), attempted 2026-08-01**
+### T-003 — Align Python version constraint — **BLOCKED (environment), re-attempted 2026-08-01**
 **Purpose:** resolve `pyproject.toml` (`>=3.11,<3.14`) vs. `poetry.lock` (`>=3.9`) disagreement.
 **Depends on:** none — parallel with T-001/T-002.
 **Priority:** P1. **Effort:** XS.
 **Role:** Claude, human-approved.
 **Acceptance criteria:** both files declare the same minimum version; `poetry lock` regenerated clean.
 **Verification:** diff of both files shows matching constraints.
+
+**Status, refined 2026-08-01:** the earlier "no poetry binary" diagnosis was incomplete. `poetry` (2.4.1) installed cleanly via `pip install --user` this session — it was never actually absent, just not on `PATH` in the first check. With poetry available, the real blocker surfaced directly: `poetry lock --no-update` refuses outright — "The currently activated Python version 3.10.12 is not supported by the project (>=3.11,<3.14). Poetry was unable to find a compatible version." Same root cause as T-002, not a second, independent blocker: no 3.11+ interpreter, and no way to obtain one here (see T-002). Manually hand-editing `poetry.lock`'s declared constraint without a real `poetry lock` run was already ruled out as unsafe (desyncs the file from what's actually resolvable) and remains ruled out.
 **Architecture:** n/a. **Roadmap:** §4, §6. **Playbook:** Part C, Dependency Upgrade Policy.
 
 **Status:** blocked, not by decision-uncertainty but by tooling absence — `poetry` isn't installed in this sandbox, and hand-editing `poetry.lock`'s declared `python-versions` field without re-resolving would desynchronize it from the versions actually locked, which is worse than leaving the mismatch visible. `pyproject.toml`'s `>=3.11,<3.14` is the constraint that looks correct (it matches the newer type-hint syntax and dependency versions actually used in the code read this session) — recommendation is `poetry lock --no-update` in the real environment to reconcile `poetry.lock` to it, not the reverse. One task, two blockers worth distinguishing: T-002 is blocked by missing runtime/deps, T-003 is blocked by missing the `poetry` binary itself.
