@@ -42,6 +42,36 @@ jobs:
           poetry run mypy --follow-imports=silent
           src/finfluencer/reporting src/finfluencer/cli.py
 
+  layer-conformance:
+    name: Layer Dependency Conformance (IG-001)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        # Deliberately standalone, not `poetry install --sync`: the checker (scripts/
+        # check_layer_dependencies.py) and its own test suite are stdlib-only by design
+        # (BACKLOG.md T-005 -- see the script's module docstring for why), so this job doesn't
+        # share the lint/test jobs' dependency-stack failure modes and runs in a fraction of the
+        # time.
+        run: pip install pytest
+
+      - name: Run the checker's own test suite
+        run: python -m pytest tests/unit/test_scripts/test_check_layer_dependencies.py -v -o addopts=""
+
+      - name: Check src/finfluencer for IG-001 violations
+        # IG-001 (IMPLEMENTATION_PLAYBOOK.md section 0): no package in presentation or api may
+        # import from infrastructure or persistence; no package in domain may import from
+        # infrastructure, persistence, api, or presentation. Clean by construction before
+        # BACKLOG.md T-006 scaffolds the six-layer skeleton -- this step starts actually
+        # enforcing the moment real files land in those directories, no further wiring needed.
+        run: python scripts/check_layer_dependencies.py
+
   test:
     name: Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
     needs: lint

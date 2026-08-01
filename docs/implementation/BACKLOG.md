@@ -18,23 +18,25 @@
 
 *Temporary Practice — regenerate this section on demand, don't hand-maintain it between real state changes.*
 
-**Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment. EPIC-01 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
+**Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment. EPIC-01 (Shared Foundation) 2/5 tasks closed (T-004, T-005); T-006 open but blocked, see below. EPIC-02 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
 
-**Sprint progress (Sprint 0 = EPIC-00 through EPIC-02):** T-001 of 14 Sprint-0 tasks closed. Sprint 0 exit gate (T-014, Walking Skeleton deployed) remains untouched.
+**Sprint progress (Sprint 0 = EPIC-00 through EPIC-02):** T-001, T-004, T-005 of 14 Sprint-0 tasks closed. Sprint 0 exit gate (T-014, Walking Skeleton deployed) remains untouched.
+
+**Dependency-order finding, 2026-08-01:** T-006 (scaffold six-layer skeleton) lists `T-001, T-002, T-003, T-004, T-005` as its dependencies. T-004 and T-005 are now closed, but T-002 and T-003 remain open (environment-blocked, not decision-blocked). Per this backlog's own absolute rule against violating dependency order, **T-006 does not start automatically** — surfaced to the operator rather than silently skipped or silently started. T-002/T-003's blocker is specifically "no Python >=3.11 interpreter obtainable in this sandbox" (see their entries below); T-006 itself (creating empty package directories) has no obvious technical need for that resolved first, so this may be a soft, sequencing-only dependency rather than a hard one — that judgment call belongs to the operator, not to a unilateral decision here.
 
 **Completed:** T-001 (uncommitted diff resolved — commit `e7052ea`, 13 files, 1438 insertions / 37 deletions).
 
 **F-001 — Resolved 2026-08-01 via Foundation Freeze, not a numbered task.** No constitutional or implementation-planning document had ever been committed to version control (finding first surfaced during T-001's execution). Resolved by committing all nine planning/governance files across 8 commits — `a9d3b83` (Playbook, incl. Part L Collaboration Protocol, committed separately per operator instruction), `a956bc3` (governance drafts GBD-001/GEP-001), `63f94d4` (`PRODUCT_ARCHITECTURE.md`), `5718be1` (`IMPLEMENTATION_ROADMAP.md`), `ac3761f` (Baseline Report), `6fc25b5` (this file, `BACKLOG.md`), `4277abd` (ADR-0001), `9d4904c` (prompts + Context Pack template) — then tagging the result `platform-foundation-v1` (annotated, local only, no remote configured). Verified via `git show --stat` per commit (exact file lists, no scope leakage into the T-033 pile), `git status --short` (clean tracked tree), `git fsck --full` (no corruption). Repository-hygiene concern, deliberately kept outside the numbered task sequence per the Foundation Freeze classification review — see conversation history for the full Backlog-Task-vs-Milestone analysis.
 
-**In progress / drafted, awaiting sign-off:** T-004 (Technology Stack ADR drafted — `docs/adr/0001-technology-stack.md` — needs human sign-off before T-005/T-006 start).
+**In progress / drafted, awaiting sign-off:** none.
 
-**Blocked (environment, not decision):** T-002 (real-environment test verification — needs Python 3.11+ and the full dependency stack, not present in this sandbox). T-003 (Python version alignment — needs the `poetry` binary itself, not present in this sandbox).
+**Blocked (environment, not decision):** T-002, T-003 — both re-attempted 2026-08-01, root cause now precise: no Python >=3.11 interpreter obtainable in this sandbox (network-restricted from downloading one; `poetry`, 2.4.1, is installed and confirms the same constraint directly via `poetry lock`).
 
-**Not started:** T-005 through T-032 (all gated, directly or transitively, on T-004's sign-off).
+**Not started, pending the T-006 dependency-order finding above:** T-006 through T-032.
 
 **Newly opened, non-blocking:** T-033 (triage ~90 untracked files found during T-001's `git status`; does not sit on the critical path).
 
-**Critical path, restated with current position:** `[T-001 ✅] → T-002 ⏸ (env-blocked) → T-006 → T-007 → T-008 → T-009 → T-011 → T-013 → T-014 → …` — T-004 is not literally on the numbered critical-path chain but is a hard prerequisite for T-005/T-006, which are; it functions as a gate immediately after T-001/T-002/T-003 regardless.
+**Critical path, restated with current position:** `[T-001 ✅] → T-002 ⏸ (env-blocked) → T-006 ⏸ (dependency-order, see finding above) → T-007 → T-008 → T-009 → T-011 → T-013 → T-014 → …` — T-004 ✅ and T-005 ✅ are closed (not literally on the numbered chain, but were hard prerequisites for T-006); the chain is now blocked at T-002/T-003 → T-006, not before them.
 
 **Parallel-work opportunities available right now:** T-002, T-003, and T-004 were correctly treated as concurrent (per BACKLOG.md's own EPIC-00 structure) — T-002 and T-003 turned out to be blocked by this sandbox specifically, not by each other or by T-004, so they remain immediately startable the moment either runs in a real environment or gets a human/CI runner. T-033 can run fully in parallel with everything else, any time.
 
@@ -87,7 +89,7 @@
 
 *The one place horizontal work is correct — built once, then every later epic cuts a vertical slice through it.*
 
-### T-004 — Record Technology Stack Decision ADR — **DRAFTED, awaiting human sign-off**
+### T-004 — Record Technology Stack Decision ADR — **CLOSED 2026-08-01**
 **Purpose:** fix language/framework/database/etc. within the categories the architecture deliberately left neutral.
 **Depends on:** none.
 **Priority:** P0. **Effort:** S.
@@ -96,16 +98,18 @@
 **Verification:** human sign-off on the ADR.
 **Architecture:** §16 (explicitly technology-neutral). **Roadmap:** n/a. **Playbook:** Part E, ADR Policy.
 
-**Status:** `docs/adr/0001-technology-stack.md` drafted this session — FastAPI, PostgreSQL, SQLAlchemy 2.0 (Persistence-layer only, per IG-001), Redis + arq, React/TypeScript, first-party JWT auth, Docker packaging (no mandated orchestrator), GitHub Actions. Every backend row is justified from what's already in `pyproject.toml`/`core/contracts.py`, not a greenfield survey. One row flagged as genuinely thin evidence rather than near-certain: React vs. Svelte/Vue, since no frontend code exists yet either way. **Not closed** — this task's own acceptance criterion is human sign-off, which hasn't happened yet; T-005/T-006 should not start until it does.
+**Outcome:** operator accepted `docs/adr/0001-technology-stack.md` as-is on 2026-08-01 — FastAPI, PostgreSQL, SQLAlchemy 2.0 (Persistence-layer only, per IG-001), Redis + arq, React/TypeScript, first-party JWT auth, Docker packaging (no mandated orchestrator), GitHub Actions. ADR status line updated to Accepted; content not reopened or redesigned, including the one flagged thin-evidence row (React vs. Svelte/Vue), per explicit instruction.
 
-### T-005 — Wire IG-001 into executable CI
+### T-005 — Wire IG-001 into executable CI — **CLOSED 2026-08-01**
 **Purpose:** make the layer-dependency rule a build property, not a described intention.
-**Depends on:** T-004 (needs to know the CI platform/language tooling).
+**Depends on:** T-004 ✅ closed.
 **Priority:** P0. **Effort:** S.
 **Role:** Claude, human-approved.
 **Acceptance criteria:** CI fails on a deliberately-authored violating change; passes once reverted.
 **Verification:** the deliberate-violation test itself (write it, confirm red, revert, confirm green).
 **Architecture:** §12.1 (six layers). **Roadmap:** n/a. **Playbook:** §0.1 (IG-001), Part D.
+
+**Outcome:** `scripts/check_layer_dependencies.py` — stdlib-only (ast + pathlib), deliberately not a third-party import-linter dependency, since `poetry.lock` cannot currently be regenerated in this sandbox (T-003) and IG-001's two-sentence rule doesn't need a general contract DSL. Wired into `.github/workflows/ci.yml` as a new `layer-conformance` job, independent of the `poetry install --sync` the lint/test jobs need (no shared failure mode with T-002/T-003's blockers). `tests/unit/test_scripts/test_check_layer_dependencies.py` — 9 tests, run and passed locally this session (`python -m pytest ... -o addopts=""`, standalone pytest, no project dependency stack needed): directory-absent-is-clean, clean-passes, domain→infrastructure flagged, presentation→persistence flagged, api→domain correctly allowed, application-layer correctly unchecked (IG-001 names it in neither restricted list), and — the literal acceptance criterion — `test_violation_then_revert`, proving red then green against one fixture. Also ran the checker directly against real `src/finfluencer`: clean, as expected (no layer directories exist yet, pre-T-006). **Not verified: actual GitHub Actions execution** — this repository has no remote configured (confirmed via `git remote -v`, empty), so the workflow file is correct and locally proven but has never run on GitHub's own infrastructure. Not a gap in the implementation, a gap in what can be observed from this sandbox.
 
 ### T-006 — Scaffold six-layer package skeleton
 **Purpose:** create the `presentation / api / application / domain / infrastructure / persistence` structure IG-001 enforces.
