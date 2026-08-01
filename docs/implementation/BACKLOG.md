@@ -18,27 +18,27 @@
 
 *Temporary Practice — regenerate this section on demand, don't hand-maintain it between real state changes.*
 
-**Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment. EPIC-01 (Shared Foundation) 2/5 tasks closed (T-004, T-005); T-006 open but blocked, see below. EPIC-02 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
+**Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment, no longer gating EPIC-01 (see Dependency Ruling below). EPIC-01 (Shared Foundation) 3/5 tasks closed (T-004, T-005, T-006). EPIC-02 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
 
-**Sprint progress (Sprint 0 = EPIC-00 through EPIC-02):** T-001, T-004, T-005 of 14 Sprint-0 tasks closed. Sprint 0 exit gate (T-014, Walking Skeleton deployed) remains untouched.
+**Sprint progress (Sprint 0 = EPIC-00 through EPIC-02):** T-001, T-004, T-005, T-006 of 14 Sprint-0 tasks closed. Sprint 0 exit gate (T-014, Walking Skeleton deployed) remains untouched.
 
-**Dependency-order finding, 2026-08-01:** T-006 (scaffold six-layer skeleton) lists `T-001, T-002, T-003, T-004, T-005` as its dependencies. T-004 and T-005 are now closed, but T-002 and T-003 remain open (environment-blocked, not decision-blocked). Per this backlog's own absolute rule against violating dependency order, **T-006 does not start automatically** — surfaced to the operator rather than silently skipped or silently started. T-002/T-003's blocker is specifically "no Python >=3.11 interpreter obtainable in this sandbox" (see their entries below); T-006 itself (creating empty package directories) has no obvious technical need for that resolved first, so this may be a soft, sequencing-only dependency rather than a hard one — that judgment call belongs to the operator, not to a unilateral decision here.
+**Dependency ruling, 2026-08-01 (resolved):** T-006 originally listed `T-001, T-002, T-003, T-004, T-005` as dependencies. An evidence-only review (this file, `IMPLEMENTATION_ROADMAP.md`, `IMPLEMENTATION_PLAYBOOK.md`, `PRODUCT_ARCHITECTURE.md` — no other source consulted) found no binding sentence in any of the four conditioning package-skeleton creation on Python/test-suite readiness; `IMPLEMENTATION_ROADMAP.md` §12's related statement ("confirm the existing test suite actually passes... before any porting work begins") names *porting* work (T-007, T-010), not skeleton creation. Operator reviewed this finding and ruled T-002/T-003 do not block T-006. T-006's dependency list narrowed to `T-001, T-004, T-005` and closed same-day. T-002/T-003 remain open in their own right — EPIC-00 itself is not closed by this ruling, only the specific T-006 gate.
 
-**Completed:** T-001 (uncommitted diff resolved — commit `e7052ea`, 13 files, 1438 insertions / 37 deletions).
+**Completed:** T-001 (uncommitted diff resolved — commit `e7052ea`, 13 files, 1438 insertions / 37 deletions). T-004 (ADR-0001 accepted). T-005 (IG-001 wired into CI). T-006 (six-layer skeleton scaffolded).
 
 **F-001 — Resolved 2026-08-01 via Foundation Freeze, not a numbered task.** No constitutional or implementation-planning document had ever been committed to version control (finding first surfaced during T-001's execution). Resolved by committing all nine planning/governance files across 8 commits — `a9d3b83` (Playbook, incl. Part L Collaboration Protocol, committed separately per operator instruction), `a956bc3` (governance drafts GBD-001/GEP-001), `63f94d4` (`PRODUCT_ARCHITECTURE.md`), `5718be1` (`IMPLEMENTATION_ROADMAP.md`), `ac3761f` (Baseline Report), `6fc25b5` (this file, `BACKLOG.md`), `4277abd` (ADR-0001), `9d4904c` (prompts + Context Pack template) — then tagging the result `platform-foundation-v1` (annotated, local only, no remote configured). Verified via `git show --stat` per commit (exact file lists, no scope leakage into the T-033 pile), `git status --short` (clean tracked tree), `git fsck --full` (no corruption). Repository-hygiene concern, deliberately kept outside the numbered task sequence per the Foundation Freeze classification review — see conversation history for the full Backlog-Task-vs-Milestone analysis.
 
 **In progress / drafted, awaiting sign-off:** none.
 
-**Blocked (environment, not decision):** T-002, T-003 — both re-attempted 2026-08-01, root cause now precise: no Python >=3.11 interpreter obtainable in this sandbox (network-restricted from downloading one; `poetry`, 2.4.1, is installed and confirms the same constraint directly via `poetry lock`).
+**Blocked (environment, not decision):** T-002, T-003 — both re-attempted 2026-08-01, root cause precise: no Python >=3.11 interpreter obtainable in this sandbox (network-restricted from downloading one; `poetry`, 2.4.1, is installed and confirms the same constraint directly via `poetry lock`). No longer gate T-006 (see Dependency Ruling above), but remain open in their own right.
 
-**Not started, pending the T-006 dependency-order finding above:** T-006 through T-032.
+**Not started:** T-007 through T-032.
 
 **Newly opened, non-blocking:** T-033 (triage ~90 untracked files found during T-001's `git status`; does not sit on the critical path).
 
-**Critical path, restated with current position:** `[T-001 ✅] → T-002 ⏸ (env-blocked) → T-006 ⏸ (dependency-order, see finding above) → T-007 → T-008 → T-009 → T-011 → T-013 → T-014 → …` — T-004 ✅ and T-005 ✅ are closed (not literally on the numbered chain, but were hard prerequisites for T-006); the chain is now blocked at T-002/T-003 → T-006, not before them.
+**Critical path, restated with current position:** `[T-001 ✅] → T-002 ⏸ (env-blocked, no longer gates T-006) → [T-006 ✅] → T-007 → T-008 → T-009 → T-011 → T-013 → T-014 → …` — T-004 ✅ and T-005 ✅ closed. T-006 ✅ closed same-day following the Dependency Ruling. Next unblocked task: **T-007**, Domain Model port.
 
-**Parallel-work opportunities available right now:** T-002, T-003, and T-004 were correctly treated as concurrent (per BACKLOG.md's own EPIC-00 structure) — T-002 and T-003 turned out to be blocked by this sandbox specifically, not by each other or by T-004, so they remain immediately startable the moment either runs in a real environment or gets a human/CI runner. T-033 can run fully in parallel with everything else, any time.
+**Parallel-work opportunities available right now:** T-002 and T-003 remain immediately startable the moment either runs in a real environment or gets a CI runner — no longer coupled to T-006's progress. T-033 can run fully in parallel with everything else, any time.
 
 *Resolves the three blocking findings from `IMPLEMENTATION_BASELINE_REPORT.md` §11. Nothing below can start until this epic closes.*
 
@@ -111,14 +111,18 @@
 
 **Outcome:** `scripts/check_layer_dependencies.py` — stdlib-only (ast + pathlib), deliberately not a third-party import-linter dependency, since `poetry.lock` cannot currently be regenerated in this sandbox (T-003) and IG-001's two-sentence rule doesn't need a general contract DSL. Wired into `.github/workflows/ci.yml` as a new `layer-conformance` job, independent of the `poetry install --sync` the lint/test jobs need (no shared failure mode with T-002/T-003's blockers). `tests/unit/test_scripts/test_check_layer_dependencies.py` — 9 tests, run and passed locally this session (`python -m pytest ... -o addopts=""`, standalone pytest, no project dependency stack needed): directory-absent-is-clean, clean-passes, domain→infrastructure flagged, presentation→persistence flagged, api→domain correctly allowed, application-layer correctly unchecked (IG-001 names it in neither restricted list), and — the literal acceptance criterion — `test_violation_then_revert`, proving red then green against one fixture. Also ran the checker directly against real `src/finfluencer`: clean, as expected (no layer directories exist yet, pre-T-006). **Not verified: actual GitHub Actions execution** — this repository has no remote configured (confirmed via `git remote -v`, empty), so the workflow file is correct and locally proven but has never run on GitHub's own infrastructure. Not a gap in the implementation, a gap in what can be observed from this sandbox.
 
-### T-006 — Scaffold six-layer package skeleton
+### T-006 — Scaffold six-layer package skeleton — **CLOSED 2026-08-01**
 **Purpose:** create the `presentation / api / application / domain / infrastructure / persistence` structure IG-001 enforces.
-**Depends on:** T-001, T-002, T-003, T-004, T-005.
+**Depends on:** ~~T-001, T-002, T-003, T-004, T-005~~ → **T-001, T-004, T-005** (narrowed by operator decision, 2026-08-01 — see Dependency Ruling below).
 **Priority:** P0. **Effort:** XS.
 **Role:** Claude, human-approved.
 **Acceptance criteria:** empty packages exist, import correctly, CI (T-005) runs clean against them.
 **Verification:** CI green on an empty commit.
 **Architecture:** §12.1. **Roadmap:** §5 Phase 0. **Playbook:** Part D.
+
+**Dependency ruling, 2026-08-01:** evidence-only review (BACKLOG.md, IMPLEMENTATION_ROADMAP.md, IMPLEMENTATION_PLAYBOOK.md, PRODUCT_ARCHITECTURE.md — no binding sentence found in any of the four conditioning T-006 on T-002/T-003) concluded both were soft, sequencing-inherited dependencies, not hard technical ones — T-006 touches no existing code, invokes no test suite, and needs no resolved `poetry.lock`. Operator reviewed the evidence and ruled T-006 may proceed. T-002 and T-003 remain open in their own right (EPIC-00 is not closed by this ruling) but no longer gate T-006.
+
+**Outcome:** six `src/finfluencer/<layer>/__init__.py` packages created (`presentation`, `api`, `application`, `domain`, `infrastructure`, `persistence`), each a docstring-only module citing its exact PRODUCT_ARCHITECTURE.md §12.1 responsibility/dependency rules — no logic, per this task's own "empty by design" scope; first real content is T-007 (domain) and T-010 (infrastructure). `tests/unit/test_layer_skeleton.py` — 7 tests, run and passed locally this session (`PYTHONPATH=src python -m pytest ... -o addopts=""`, standalone pytest): all six packages import correctly, and the T-005 checker reports zero violations against the real `src/finfluencer` tree — both halves of this task's acceptance criteria proven directly, not assumed. **Not verified: a true editable install** (`pip install -e .`) — this sandbox can't run one (Python 3.11+ unavailable, T-002/T-003's root cause); local verification used `PYTHONPATH=src` as a substitute, which exercises the same import mechanics but isn't identical to what `poetry install --sync` will do on GitHub Actions. Flagged, not glossed over.
 
 ### T-007 — Port minimal Domain Model as code
 **Purpose:** `Tenant`, `Project`, `Dataset`, `CollectionRun` only — not all fifteen §10.1 entities. The rest arrive per-epic, as each one needs them.
