@@ -10,12 +10,24 @@ BACKLOG.md T-011 adds `ICollectionRunRepository` -- exactly the two methods
 `StartCollectionRunOrchestrator` needs (`add`, `get_by_idempotency_key`), same minimal-surface
 discipline.
 
-No concrete implementation exists anywhere in this repository yet. BACKLOG.md T-009/T-011
+BACKLOG.md T-020 adds `IAnalysisRunRepository` for `StartAnalysisRunOrchestrator` -- same two
+methods, same minimal-surface discipline, but keyed on `(project_id, idempotency_key)` (an
+`AnalysisRun` belongs to a `Project`, section 10.1 line 576) rather than `(dataset_id, ...)`.
+One genuine behavioral difference from `ICollectionRunRepository`, flagged here rather than
+silently mirrored: `add()` may legitimately be called more than once for the same idempotency
+key over an `AnalysisRun`'s retry lifetime, since `AnalysisRun` has no `resume()` (section 10.1
+line 577: "re-run creates a new `AnalysisRun`, never mutates an existing one") -- each retry
+after a `FAILED` attempt persists a *new* `AnalysisRun` and re-points the key's mapping, whereas
+`ICollectionRunRepository.add()` is called exactly once per key because Collection resumes the
+same instance in place instead.
+
+No concrete implementation exists anywhere in this repository yet. BACKLOG.md T-009/T-011/T-020
 explicitly exclude Persistence Layer work ("No persistence implementation yet," operator
-instruction, 2026-08-01). A test double implementing either `Protocol` (as used in
-`tests/unit/test_application/test_create_project_orchestrator.py` and
-`test_start_collection_run_orchestrator.py`) is an ordinary test fixture, not a Persistence-layer
-implementation -- it never touches `src/finfluencer/persistence/`.
+instruction, 2026-08-01). A test double implementing any of these `Protocol`s (as used in
+`tests/unit/test_application/test_create_project_orchestrator.py`,
+`test_start_collection_run_orchestrator.py`, and `test_start_analysis_run_orchestrator.py`) is an
+ordinary test fixture, not a Persistence-layer implementation -- it never touches
+`src/finfluencer/persistence/`.
 """
 
 from __future__ import annotations
@@ -23,6 +35,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from finfluencer.domain.entities._common import EntityId
+from finfluencer.domain.entities.analysis_run import AnalysisRun
 from finfluencer.domain.entities.collection_run import CollectionRun
 from finfluencer.domain.entities.project import Project
 
@@ -72,5 +85,37 @@ class ICollectionRunRepository(Protocol):
         Returns `None` on no match -- the orchestrator's signal to create a new CollectionRun.
         Section 11.2/16.10's idempotent-dispatch requirement for `StartCollectionRun` is what
         this method exists to satisfy.
+        """
+        ...
+
+
+class IAnalysisRunRepository(Protocol):
+    """Domain- and Application-owned interface, per section 12.1 lines 831/839 above.
+
+    Two methods only -- exactly what `StartAnalysisRunOrchestrator` (T-020) needs. Keyed on
+    `(project_id, idempotency_key)`, not `(dataset_id, ...)` -- `AnalysisRun` "belongs to
+    exactly one `Project`" (section 10.1 line 576), unlike `CollectionRun`.
+    """
+
+    def add(self, analysis_run: AnalysisRun, *, idempotency_key: str) -> None:
+        """Persist a newly created AnalysisRun, indexed for later idempotent lookup by
+        `(analysis_run.project_id, idempotency_key)`.
+
+        Unlike `ICollectionRunRepository.add()`, this method may legitimately be called more
+        than once for the same `idempotency_key` over time: `AnalysisRun` has no `resume()`
+        (section 10.1 line 577 -- "re-run creates a new `AnalysisRun`, never mutates an existing
+        one"), so each retry after a `FAILED` attempt persists a *new* `AnalysisRun` and
+        re-points this key's mapping to it, rather than mutating the failed instance in place.
+        A conforming implementation must overwrite, not reject, a second `add()` for a key
+        already in use.
+        """
+        ...
+
+    def get_by_idempotency_key(
+        self, project_id: EntityId, idempotency_key: str
+    ) -> AnalysisRun | None:
+        """Look up the most recently persisted AnalysisRun by `(project_id, idempotency_key)`.
+
+        Returns `None` on no match -- the orchestrator's signal to create a new AnalysisRun.
         """
         ...
