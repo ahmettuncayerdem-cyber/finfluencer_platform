@@ -24,6 +24,8 @@
 
 **Completed:** T-001 (uncommitted diff resolved — commit `e7052ea`, 13 files, 1438 insertions / 37 deletions).
 
+**F-001 — Resolved 2026-08-01 via Foundation Freeze, not a numbered task.** No constitutional or implementation-planning document had ever been committed to version control (finding first surfaced during T-001's execution). Resolved by committing all nine planning/governance files across 8 commits — `a9d3b83` (Playbook, incl. Part L Collaboration Protocol, committed separately per operator instruction), `a956bc3` (governance drafts GBD-001/GEP-001), `63f94d4` (`PRODUCT_ARCHITECTURE.md`), `5718be1` (`IMPLEMENTATION_ROADMAP.md`), `ac3761f` (Baseline Report), `6fc25b5` (this file, `BACKLOG.md`), `4277abd` (ADR-0001), `9d4904c` (prompts + Context Pack template) — then tagging the result `platform-foundation-v1` (annotated, local only, no remote configured). Verified via `git show --stat` per commit (exact file lists, no scope leakage into the T-033 pile), `git status --short` (clean tracked tree), `git fsck --full` (no corruption). Repository-hygiene concern, deliberately kept outside the numbered task sequence per the Foundation Freeze classification review — see conversation history for the full Backlog-Task-vs-Milestone analysis.
+
 **In progress / drafted, awaiting sign-off:** T-004 (Technology Stack ADR drafted — `docs/adr/0001-technology-stack.md` — needs human sign-off before T-005/T-006 start).
 
 **Blocked (environment, not decision):** T-002 (real-environment test verification — needs Python 3.11+ and the full dependency stack, not present in this sandbox). T-003 (Python version alignment — needs the `poetry` binary itself, not present in this sandbox).
