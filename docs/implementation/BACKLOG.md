@@ -8,7 +8,7 @@
 
 ## Critical Path
 
-`T-001 → T-002 → T-006 → T-007 → T-008 → T-009 → T-011 → T-013 → T-014 → [T-018→T-019→T-020→T-021] → [T-022→T-023] → [T-024→T-025→(T-026 ‖ T-027)→T-028] → T-029 → T-030 → T-031 → T-032`
+`T-001 → T-002 → T-006 → T-007 → T-008 → T-009 → T-011 → T-013 → T-014 → [T-018→T-019→T-020→T-021] → [T-022→T-023 ✅] → [T-024→T-025→(T-026 ‖ T-027)→T-028] → T-029 → T-030 → T-031 → T-032`
 
 **EPIC-03 (T-015–T-017, live collection) runs in parallel with EPIC-04/05's build phase**, not before it — it only needs to rejoin at T-029, since MVP requires real collected data but nothing in EPIC-04/05/06's code depends on collection being *live* rather than fixture-sourced. This is the one non-obvious parallelization opportunity in the whole backlog; see Internal Review.
 
@@ -22,7 +22,7 @@
 
 **EPIC-04 (Topic Analysis, Sprint 2): 4/4 tasks CLOSED — SPRINT 2 COMPLETE.** T-018 — `AnalysisType`/`AnalysisRun` Domain entities, cross-vendor review outstanding (non-blocking). T-019 — `TopicsAnalysisAdapter`. T-020 — `StartAnalysisRunOrchestrator`, retry-creates-new-run proven. T-021 — immutability/pinning exhaustively tested, zero new production code, human-verified 2026-08-01. `SPRINT_2_KICKOFF.md` approved 2026-08-01.
 
-**EPIC-05 (Sentiment Analysis, Sprint 3): 1/2 tasks closed.** `SPRINT_3_KICKOFF.md` and Sprint Readiness Review approved 2026-08-01, T-022 authorized and closed same day — `SentimentAnalysisAdapter` wraps `sentiment.pipeline.run_sentiment` unmodified, second `IAnalysisEngine` implementation. T-023 (verify zero orchestrator diff) is next-in-sequence, awaiting its own Task Authorization. EPIC-06 through EPIC-08 (except the housekeeping item below): not started.
+**EPIC-05 (Sentiment Analysis, Sprint 3): 2/2 tasks CLOSED.** T-022 — `SentimentAnalysisAdapter` wraps `sentiment.pipeline.run_sentiment` unmodified, second `IAnalysisEngine` implementation. T-023 — verified zero orchestrator diff since T-020 (`git diff`-confirmed, plus structural dispatch/signature/no-branching proof); plugin architecture confirmed to generalize across two `AnalysisType` implementations with no architectural changes required. Sprint 3 implementation complete; ARB Review of the `IAnalysisEngine` pattern (deferred to this point, per ARB-01 in the Governance Register) and formal Sprint 3 Closure remain before EPIC-06/Sprint 4. EPIC-06 through EPIC-08 (except the housekeeping item below): not started.
 
 **Sprint progress (Sprint 0 = EPIC-00 through EPIC-02): 10 of 14 Sprint-0 tasks closed — SPRINT 0 COMPLETE.** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope), T-011 (Sprint 0 scope), T-012 (Sprint 0 scope), T-013 (Sprint 0 scope), T-014 (closed, human-verified) — every task this sprint's own scope required is closed. T-002/T-003 remain open but, per the Dependency Ruling below, never gated this closure. Formal closure documents: `SPRINT_0_RETROSPECTIVE.md`, `SPRINT_0_COMPLETION_REPORT.md`, `SPRINT_1_READINESS_ASSESSMENT.md` (2026-08-01). Sprint 0 remains CLOSED and immutable.
 
@@ -40,7 +40,7 @@
 
 **Blocked (environment, not decision):** T-002, T-003 — both re-attempted 2026-08-01, root cause precise: no Python >=3.11 interpreter obtainable in this sandbox (network-restricted from downloading one; `poetry`, 2.4.1, is installed and confirms the same constraint directly via `poetry lock`). No longer gate T-006 (see Dependency Ruling above), but remain open in their own right.
 
-**Not started:** T-023 through T-032. T-023 (verify `StartAnalysisRun` orchestrator diff for T-022 is zero) is next-in-sequence, awaiting its own Task Authorization — a Sprint Authorization does not imply a Task Authorization, per the operator's own two-gate governance model.
+**Not started:** T-024 through T-032. Next-in-sequence: ARB Review of the `IAnalysisEngine` pattern (evidence prepared by T-023, decision not yet rendered — CEOM v1.0 §8, ARB-01 in the Governance Register), then Sprint 3 Closure, then Sprint 4 (EPIC-06) Kickoff.
 
 **Newly opened, non-blocking:** T-033 (triage ~90 untracked files found during T-001's `git status`; does not sit on the critical path).
 
@@ -471,7 +471,7 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 
 **Outcome:** `infrastructure/analysis/sentiment_adapter.py` (`SentimentAnalysisAdapter`) implements `IAnalysisEngine` by wrapping `sentiment.pipeline.run_sentiment` unmodified — zero lines changed in the wrapped file. `comments_path` resolved via the same T-010/T-019 directory convention. One genuinely new decision beyond T-019's own pattern: the `SentimentProvider` is resolved lazily (an optional `provider` for direct injection, or an optional zero-arg `provider_factory`, invoked only inside `run()` — never at construction), extending `TopicsAnalysisAdapter`'s existing model_loader/runner_factory deferred-callable discipline to this adapter's own dependency. **Flagged finding for T-023:** `AnalysisOutcome.topic_count` (T-019's frozen contract, not modified here) is topic-modeling-named; this adapter reuses it, populated as `sentiment_df["sentiment_class"].nunique()` (count of distinct classes produced, 0–2) — a defensible reuse of the same "nunique() of the categorical output column" shape, but a genuine naming-fit gap worth T-023's attention, documented in `CONTEXT_PACK_SENTIMENT.md`'s Gotchas. 7 new tests (known-sentiment-classification via fixture + fake provider, checkpoint isolation across two `analysis_run_id`s, lazy-provider-resolution proof, input validation, IG-001-style ast import check, no-legacy-mutation check) — same fake-injection technique as T-019, no `transformers`/`torch` install needed. Confirmed `tests/unit/test_sentiment` (20 passed) also runs clean without those heavy deps installed — same housekeeping correction as T-019's `test_topics` discovery; now included in the standard full-regression command going forward. Full regression: 754 passed, 1 skipped (was 727; +20 test_sentiment +7 new). Walking Skeleton subset: 189 passed (was 182; +7). IG-001: clean. `StartAnalysisRunOrchestrator` (T-020) not touched — diff review is T-023's own job.
 
-### T-023 — Verify plugin pattern generalizes with zero orchestrator changes
+### T-023 — Verify plugin pattern generalizes with zero orchestrator changes — **CLOSED 2026-08-01**
 **Purpose:** if T-022 required touching `StartAnalysisRun`'s orchestrator code, the plugin abstraction has a real gap worth knowing about now, not in a third `AnalysisType` later.
 **Depends on:** T-022.
 **Priority:** P0. **Effort:** XS.
@@ -479,6 +479,8 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 **Acceptance criteria:** orchestrator diff for T-022 is zero, or any diff found is explicitly justified in an ADR.
 **Verification:** diff review.
 **Architecture:** §5. **Roadmap:** §4. **Playbook:** Part E, ADR Policy.
+
+**Outcome:** `git diff 28ed4a3..HEAD -- src/finfluencer/application/ src/finfluencer/domain/` confirms **zero lines changed** in either tree since T-020's close — `StartAnalysisRunOrchestrator`, `IAnalysisEngine`, `AnalysisOutcome`, `IAnalysisRunRepository`, and every T-018 Domain entity are byte-identical to their T-020 state. No ADR required — the acceptance criterion's "zero diff" branch is met, not the "justified diff" branch. Verification-only, zero new production code (same precedent as T-021): new `tests/unit/test_application/test_t023_plugin_generalization.py` (3 tests) proves this structurally rather than only textually — the orchestrator actually dispatches a `SentimentAnalysisAdapter` end to end through the unmodified `IAnalysisEngine` seam; `TopicsAnalysisAdapter.run`/`SentimentAnalysisAdapter.run`/`IAnalysisEngine.run` signatures are identical; an ast-based import/control-flow check confirms the orchestrator never imports `finfluencer.topics.*`/`finfluencer.sentiment.*`/any concrete adapter, and its only three `if` branches are T-020's own create/replay/retry status dispatch, not per-`AnalysisType` branching. `AnalysisOutcome.topic_count` (TD-03) evaluated and classified **Generalize** — not fixed here, contract remains frozen pending a future task. Full regression: 757 passed, 1 skipped (was 754; +3). Walking Skeleton subset: 192 passed (was 189; +3). IG-001: clean. **Conclusion: the plugin architecture successfully generalized across two `AnalysisType` implementations with no architectural changes required.**
 
 ---
 

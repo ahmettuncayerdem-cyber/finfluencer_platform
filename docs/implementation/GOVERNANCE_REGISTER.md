@@ -19,7 +19,7 @@
 
 | ID | Status | Reason | Owner | Next Review Point |
 |---|---|---|---|---|
-| ARB-01 | Proposed, deferred | `IAnalysisEngine` plugin-pattern review — trigger: second implementation exists (`SentimentAnalysisAdapter`, T-022). Operator elected to defer until T-023 supplies zero-orchestrator-diff evidence, strengthening the review's basis. | Claude (reviewer) / Operator (authorizer) | After T-023 closes. |
+| ARB-01 | Evidence ready, decision pending | `IAnalysisEngine` plugin-pattern review — trigger: second implementation exists (`SentimentAnalysisAdapter`, T-022). T-023 (closed 2026-08-01) supplied the deferred evidence: `git diff`-confirmed zero-line orchestrator/Domain diff since T-020, plus structural dispatch/signature/no-branching proof (`test_t023_plugin_generalization.py`). Full review not yet performed — proposal only, per ARB's own change policy (never auto-executes). | Claude (reviewer) / Operator (authorizer) | Whenever operator authorizes the ARB Review itself. |
 
 ## Technical Debt (TD)
 
@@ -27,7 +27,7 @@
 |---|---|---|---|---|
 | TD-01 | Open, non-blocking | T-015/T-017 live-network/real-timing verification halves environment-blocked (sandbox proxy returns 403 for `googleapis.com`). Manual scripts ready for an operator with real egress. | Operator (execution) | First task requiring genuine live-network proof (unscheduled). |
 | TD-02 | Open, non-blocking | Retry-after-failure cache-miss: T-019/T-020's per-`analysis_run_id` cache partitioning means a retried analysis run never hits the Tier-3 cache, even on an unchanged corpus. Applies identically to T-022. Correctness-preserving trade-off, not a defect. | Architecture | Unscheduled — revisit only if retry frequency in production makes this a measurable cost. |
-| TD-03 | Open, classified **Generalize** (EGF Contract Stability Review) | `AnalysisOutcome.topic_count` is topic-modeling-named, reused for sentiment's distinct-class count (T-022). Field predates a second `AnalysisType`; changing it now touches T-019's frozen contract. | T-023 review | T-023. |
+| TD-03 | Open, classified **Generalize** (confirmed by both the EGF Contract Stability Review and T-023's own Special Focus assessment) | `AnalysisOutcome.topic_count` is topic-modeling-named, reused for sentiment's distinct-class count (T-022). Field predates a second `AnalysisType`; changing it now touches T-019's frozen contract. Not fixed by T-023 (verification-only scope); remains open for a future task or the ARB Review's own recommendation. | ARB-01 / a future task | Alongside ARB-01's resolution. |
 | TD-04 | Open, low priority | Context Pack file-naming asymmetry: `CONTEXT_PACK.md` (unsuffixed, Topics) vs. `CONTEXT_PACK_SENTIMENT.md` (suffixed, Sentiment) — convention never formalized before a second adapter existed. | Housekeeping | Before a third `AnalysisType` is added. |
 | TD-05 | Open, non-blocking (flagged since T-019) | Embeddings-generation pipeline not wrapped as its own Infrastructure adapter; `embeddings_index_path` remains caller-supplied to `TopicsAnalysisAdapter`. | Unticketed | First task needing to produce `embeddings_index.parquet` from raw comments rather than consume a pre-existing one. |
 
