@@ -12,8 +12,12 @@ Persistence implementations. Not enforced by scripts/check_layer_dependencies.py
 names presentation, api, and domain only; the "never a concrete class, only an interface"
 discipline for this layer is a code-review concern, not a mechanically checkable import rule.
 
-Empty by design (BACKLOG.md T-006): orchestrators are added per vertical slice, starting with
-StartCollectionRun (BACKLOG.md T-011), not speculatively ahead of time.
+BACKLOG.md T-009 (CreateProject command): the first orchestrator,
+`orchestrators.create_project.CreateProjectOrchestrator`, now lives here. Scoped by explicit
+operator instruction to exactly what T-009 requires: no persistence implementation (depends on
+`IProjectRepository`, an interface, only), no authentication, no authorization. Everything else
+in section 11's command/query catalog (starting with `StartCollectionRun`, BACKLOG.md T-011)
+grows this package per vertical slice, not speculatively ahead of time.
 """
 
 from __future__ import annotations

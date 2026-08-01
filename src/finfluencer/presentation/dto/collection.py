@@ -13,13 +13,10 @@ PRODUCT_ARCHITECTURE.md section 11.2, Collection Service:
 REST derivation, section 11.3, line 778: `POST /datasets/{id}/collection-runs` <-
 `StartCollectionRun` command, "Async (202 Accepted + polling/event)".
 
-Naming note: BACKLOG.md T-008's own purpose line names this operation "GetCollectionRunStatus",
-but section 11.2's actual, binding query name is `GetCollectionRun` (line 684) -- no
-`GetCollectionRunStatus` query exists in the approved contract. `GetCollectionRunResponse`
-below implements the query section 11.2 actually names; its response includes `status` among
-the CollectionRun's wire-visible fields, which is what BACKLOG.md's shorthand name refers to.
-This is a naming reconciliation, not a scope deviation -- flagged explicitly per this task's
-"matches section 11.2... for this slice" acceptance criterion, not silently substituted.
+The query below is named `GetCollectionRun`, the one and only canonical name section 11.2
+line 684 gives it (BACKLOG.md previously used a different shorthand for this operation;
+BACKLOG.md itself was corrected during the pre-T-009 architectural preparation pass rather
+than this code, since section 11.2 is the binding source and this name already matched it).
 """
 
 from __future__ import annotations

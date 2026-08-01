@@ -191,8 +191,7 @@ def test_collection_run_accepted_rejects_non_queued_status() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 3. GetCollectionRun (Collection Service, section 11.2 line 684 -- BACKLOG.md's
-#    "GetCollectionRunStatus" shorthand; see collection.py's module docstring)
+# 3. GetCollectionRun (Collection Service, section 11.2 line 684)
 # ---------------------------------------------------------------------------
 
 

@@ -22,11 +22,16 @@ extension point is marked with a TODO comment in the owning module, citing the e
 PRODUCT_ARCHITECTURE.md section 10.1 line range it will implement. No authorization logic exists
 here either -- ``AuthorizationPolicy`` (section 12.1) is not yet implemented.
 
+BACKLOG.md T-009 (CreateProject command): ``finfluencer.domain.repositories`` adds
+``IProjectRepository``, the one repository interface Application's new
+``CreateProjectOrchestrator`` depends on. No concrete implementation exists anywhere yet --
+Persistence Layer work is explicitly out of scope until a later task.
+
 This top-level package intentionally re-exports nothing: import from
-``finfluencer.domain.entities`` directly. No mandatory cross-vendor AI architecture review
-(IMPLEMENTATION_PLAYBOOK.md Part B.1) has yet been performed against this change from a
-genuinely different vendor/session -- BACKLOG.md records this as an open item, not a satisfied
-gate.
+``finfluencer.domain.entities`` or ``finfluencer.domain.repositories`` directly. No mandatory
+cross-vendor AI architecture review (IMPLEMENTATION_PLAYBOOK.md Part B.1) has yet been
+performed against either change from a genuinely different vendor/session -- BACKLOG.md records
+this as an open item, not a satisfied gate.
 """
 
 from __future__ import annotations
