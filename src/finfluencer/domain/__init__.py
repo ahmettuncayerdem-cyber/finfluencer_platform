@@ -12,10 +12,21 @@ Forbidden dependencies: everything outside itself -- Application, Presentation, 
 Infrastructure, Persistence, and any external SDK, no exceptions (enforced by
 scripts/check_layer_dependencies.py, IG-001, IMPLEMENTATION_PLAYBOOK.md section 0).
 
-Empty by design (BACKLOG.md T-006): the first four entities (Tenant, Project, Dataset,
-CollectionRun) land in BACKLOG.md T-007, not here -- cross-vendor AI review is mandatory for that
-change (IMPLEMENTATION_PLAYBOOK.md Part B.1), this scaffold is deliberately reviewed at lower
-ceremony since it contains no business logic yet.
+BACKLOG.md T-007 (Sprint 0 Domain Model): the first four entities -- Tenant, Project, Dataset,
+CollectionRun, per PRODUCT_ARCHITECTURE.md section 10.1 -- now live under
+``finfluencer.domain.entities``. This is a deliberate subset, not all fifteen section 10.1
+entities: User, TenantMembership, ProjectMembership, VerticalTemplate, AnalysisType,
+InterpretationRecord, Report, Export, Subscription, and AuditLogEntry are intentionally deferred
+to later tasks and are not implemented anywhere in this package yet. Each deferred entity's
+extension point is marked with a TODO comment in the owning module, citing the exact
+PRODUCT_ARCHITECTURE.md section 10.1 line range it will implement. No authorization logic exists
+here either -- ``AuthorizationPolicy`` (section 12.1) is not yet implemented.
+
+This top-level package intentionally re-exports nothing: import from
+``finfluencer.domain.entities`` directly. No mandatory cross-vendor AI architecture review
+(IMPLEMENTATION_PLAYBOOK.md Part B.1) has yet been performed against this change from a
+genuinely different vendor/session -- BACKLOG.md records this as an open item, not a satisfied
+gate.
 """
 
 from __future__ import annotations
