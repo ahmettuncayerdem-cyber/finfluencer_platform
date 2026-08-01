@@ -18,7 +18,9 @@
 
 *Temporary Practice — regenerate this section on demand, don't hand-maintain it between real state changes.*
 
-**Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment, no longer gating EPIC-01 (see Dependency Ruling below). EPIC-01 (Shared Foundation) 5/5 tasks closed (T-004, T-005, T-006, T-007, T-008 implementation — T-008's cross-vendor review outstanding, see its own entry). **EPIC-02 (Walking Skeleton) 6/6 tasks closed for Sprint 0 scope — COMPLETE.** (T-009 — Persistence-backed criterion deferred; T-010, T-011, T-012, T-013 — cross-vendor review outstanding; T-014 — human-verified and closed 2026-08-01; see each entry). **EPIC-03 (Live Collection, Sprint 1): 3/3 tasks closed — COMPLETE (live-network verification halves of T-015/T-017 environment-blocked, not code gaps).** T-015 — implementation closed, live-network half of Verification environment-blocked. T-016 — closed, retry policy implemented and tested. T-017 — implementation closed, live-network half environment-blocked (same constraint, re-confirmed not rediscovered). See each entry. EPIC-04 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
+**Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment, no longer gating EPIC-01 (see Dependency Ruling below). EPIC-01 (Shared Foundation) 5/5 tasks closed (T-004, T-005, T-006, T-007, T-008 implementation — T-008's cross-vendor review outstanding, see its own entry). **EPIC-02 (Walking Skeleton) 6/6 tasks closed for Sprint 0 scope — COMPLETE.** (T-009 — Persistence-backed criterion deferred; T-010, T-011, T-012, T-013 — cross-vendor review outstanding; T-014 — human-verified and closed 2026-08-01; see each entry). **EPIC-03 (Live Collection, Sprint 1): 3/3 tasks closed — COMPLETE (live-network verification halves of T-015/T-017 environment-blocked, not code gaps).** T-015 — implementation closed, live-network half of Verification environment-blocked. T-016 — closed, retry policy implemented and tested. T-017 — implementation closed, live-network half environment-blocked (same constraint, re-confirmed not rediscovered). See each entry.
+
+**EPIC-04 (Topic Analysis, Sprint 2): 1/4 tasks closed.** T-018 — `AnalysisType`/`AnalysisRun` Domain entities implemented, cross-vendor review outstanding (non-blocking). T-019/T-020/T-021 not started. `SPRINT_2_KICKOFF.md` approved 2026-08-01. EPIC-04 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
 
 **Sprint progress (Sprint 0 = EPIC-00 through EPIC-02): 10 of 14 Sprint-0 tasks closed — SPRINT 0 COMPLETE.** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope), T-011 (Sprint 0 scope), T-012 (Sprint 0 scope), T-013 (Sprint 0 scope), T-014 (closed, human-verified) — every task this sprint's own scope required is closed. T-002/T-003 remain open but, per the Dependency Ruling below, never gated this closure. Formal closure documents: `SPRINT_0_RETROSPECTIVE.md`, `SPRINT_0_COMPLETION_REPORT.md`, `SPRINT_1_READINESS_ASSESSMENT.md` (2026-08-01). Sprint 0 remains CLOSED and immutable.
 
@@ -36,7 +38,7 @@
 
 **Blocked (environment, not decision):** T-002, T-003 — both re-attempted 2026-08-01, root cause precise: no Python >=3.11 interpreter obtainable in this sandbox (network-restricted from downloading one; `poetry`, 2.4.1, is installed and confirms the same constraint directly via `poetry lock`). No longer gate T-006 (see Dependency Ruling above), but remain open in their own right.
 
-**Not started:** T-018 through T-032 (EPIC-03/Sprint 1, T-015 through T-017, is now closed — live-network verification halves of T-015/T-017 environment-blocked, not code gaps, same evidentiary standard already applied to T-002/T-003/T-014). T-018 (EPIC-04, Topic Analysis, Sprint 2) is next-in-sequence per the Roadmap's execution phases.
+**Not started:** T-019 through T-032 (EPIC-03/Sprint 1 is closed; T-018 closed 2026-08-01, see its own entry). T-019 (`topics/` BERTopic Infrastructure adapter, Effort L) is next-in-sequence per `SPRINT_2_KICKOFF.md`.
 
 **Newly opened, non-blocking:** T-033 (triage ~90 untracked files found during T-001's `git status`; does not sit on the critical path).
 
@@ -408,7 +410,7 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 
 ## EPIC-04 — Topic Analysis *(Sprint 2)*
 
-### T-018 — Extend Domain Model: `AnalysisType`, `AnalysisRun`
+### T-018 — Extend Domain Model: `AnalysisType`, `AnalysisRun` — **IMPLEMENTATION CLOSED 2026-08-01; CROSS-VENDOR REVIEW OUTSTANDING**
 **Purpose:** the next two of fifteen §10.1 entities, added because this epic needs them, not before.
 **Depends on:** T-007 — **not** T-017; can start once EPIC-02 closes, in parallel with EPIC-03.
 **Priority:** P0. **Effort:** M.
@@ -416,6 +418,8 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 **Acceptance criteria:** `AnalysisRun` pinned to a specific `CollectionRun` per §10.1's hard rule; immutability enforced.
 **Verification:** a test that attempts to mutate a completed `AnalysisRun` and confirms it fails.
 **Architecture:** §10.1. **Roadmap:** §4 (Collection before Analysis, hard dependency). **Playbook:** Part B.1.
+
+**Outcome:** `AnalysisType` (`domain/entities/analysis_type.py`) — minimal catalog-reference entity (`key`, `version`); no catalog/parameter-schema modeling, out of this task's scope. `AnalysisRun` (`domain/entities/analysis_run.py`) — pinned to `project_id`, `collection_run_id`, `analysis_type_id`+`analysis_type_version`, all required at construction, no setters (immutable references). Same `queued -> running -> completed | failed` lifecycle and "immutable once completed" discipline as `CollectionRun`, but deliberately has **no `resume()` method** — §10.1 line 577 specifies a failed `AnalysisRun` is retried by constructing a new instance, not by resuming the old one; this divergence from `CollectionRun` is explicit, not an oversight (tested directly: `test_analysis_run_has_no_resume_method`). 22 new tests across both entities (construction validation, lifecycle, completed-run immutability, distinct ids, collection_run_id non-settability). Roadmap Risk R-2 (`AnalysisScope` reconciliation) not touched or resolved by this task — `core.contracts.AnalysisScope` (comment-scoping) and §10.1's `AnalysisType` (pluggable analysis kind) are different concepts; §10.1's `AnalysisRun` spec has no scope reference at all, so R-2 remains legitimately deferred, not newly blocking. Full regression: 649 passed (was 627; +22). Walking Skeleton subset: 153 passed. IG-001: clean. Cross-vendor review mandatory per this task's own Role line (Domain Model change) — outstanding, non-blocking, same as T-008/010/011/012/013/015/016/017.
 
 ### T-019 — Wrap `topics/` (BERTopic) as an Infrastructure adapter
 **Purpose:** reuse the tested topic-modeling pipeline (Roadmap §3: wrapper required).
