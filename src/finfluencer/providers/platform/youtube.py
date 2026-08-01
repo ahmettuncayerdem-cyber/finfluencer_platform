@@ -33,6 +33,7 @@ from finfluencer.core.contracts import CommentRecord, VideoRecord
 from finfluencer.core.exceptions import (
     AuthenticationError,
     CollectionError,
+    CommentsDisabledError,
     NetworkError,
     QuotaExhaustedError,
     RateLimitError,
@@ -127,7 +128,11 @@ class YouTubePlatformProvider:
                     or "has disabled comments" in lower_msg
                     or "disabled comments" in lower_msg
                 ):
-                    raise ResourceNotFoundError(
+                    # ADR-P2-002 (R2): a distinct type from
+                    # ResourceNotFoundError — the video exists, only its
+                    # comments are turned off. See CommentsDisabledError's
+                    # own docstring for why this conflation was a bug.
+                    raise CommentsDisabledError(
                         "Comments disabled for this video",
                         status_code=status,
                     ) from e
@@ -392,14 +397,17 @@ class YouTubePlatformProvider:
             )
             try:
                 resp = self._execute(req)
-            except ResourceNotFoundError:
-                # Comments disabled → empty result, not an error.
+            except CommentsDisabledError:
+                # ADR-P2-002 (R2): comments disabled is an expected
+                # content state → empty result, not an error. A genuine
+                # ResourceNotFoundError (video deleted/missing) is
+                # deliberately NOT caught here — it must propagate, so
+                # callers can distinguish "nothing to collect" from
+                # "this video could not be found at all". This replaces
+                # the previous two-exception, string-sniffing fallback
+                # (which also swallowed 404s) with the single precise
+                # type introduced for this fix.
                 return results
-            except CollectionError as e:
-                # commentsDisabled surfaces as 403 with specific reason
-                if "commentsDisabled" in str(e) or "disabled" in str(e).lower():
-                    return results
-                raise
             self._spend_quota("commentThreads_list")
 
             for thread in resp.get("items") or []:

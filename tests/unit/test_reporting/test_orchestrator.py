@@ -335,6 +335,56 @@ class TestDryRun:
         assert not _expected_paths(cfg)["master_table"].exists()
         assert _manifests(cfg) == []
 
+    def test_dry_run_does_not_delete_stale_checkpoint_marker(self, tmp_path, monkeypatch):
+        """R8 / ADR-P2-004 regression test.
+
+        Reproduces the exact real-world sequence: a stage completes,
+        its input then changes on disk (making the checkpoint stale),
+        and the caller previews with --dry-run before deciding whether
+        to actually re-run. Before the fix, ``_build_dry_run_plan`` ->
+        ``checkpoint.should_run()`` silently deleted the ``.done``
+        marker as a side effect of merely answering "would this run?"
+        -- despite that function's own docstring promising
+        "Introspection-only: never touches disk". A dry run must be
+        able to report "would_run" without destroying the record that
+        the *previous* run actually completed.
+        """
+        cfg = _load_cfg_with_tmp_paths(tmp_path, monkeypatch)
+        _write_corpus(cfg, _synthetic_reporting_corpus(n_per_analyst=5, seed=0))
+        run_reporting_pipeline(cfg, stage="master_table")
+
+        marker = Path(str(cfg.settings.output.paths.checkpoints)) / "reporting_master_table.done"
+        assert marker.exists()
+        recorded_before = marker.read_text(encoding="utf-8")
+
+        # Change input content -> config_slice hash changes -> checkpoint
+        # is now stale, exactly the condition that made should_run()
+        # delete the marker.
+        _write_corpus(cfg, _synthetic_reporting_corpus(n_per_analyst=6, seed=1))
+
+        plan = run_reporting_pipeline(cfg, stage="master_table", dry_run=True)
+
+        assert plan == {"master_table": "would_run"}, (
+            "the plan must still correctly report staleness"
+        )
+        assert marker.exists(), (
+            "dry_run must not delete the marker for a stage it only "
+            "previewed -- this is the destructive side effect ADR-P2-004 "
+            "fixes"
+        )
+        assert marker.read_text(encoding="utf-8") == recorded_before, (
+            "marker content must be untouched, not just 'still present'"
+        )
+
+        # And the real run afterward must still correctly detect
+        # staleness and re-execute -- proving should_run()'s own
+        # (unchanged, still-mutating) contract for real runs still works.
+        events: list[tuple[str, str]] = []
+        run_reporting_pipeline(
+            cfg, stage="master_table", on_progress=lambda s, e: events.append((s, e)),
+        )
+        assert events == [("master_table", "start"), ("master_table", "done")]
+
 
 # =============================================================================
 # Cancellation

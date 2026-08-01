@@ -455,7 +455,14 @@ def _build_dry_run_plan(
             continue
         config_slice = _config_slice(spec, paths)
         ckpt_name = _checkpoint_name(name)
-        plan[name] = "would_run" if checkpoint.should_run(ckpt_name, config_slice) else "up_to_date"
+        # has_valid_marker(), not should_run(): this function's own
+        # docstring promises "never touches disk", but should_run()
+        # deletes a stale marker as a side effect (ADR-P2-004 / R8).
+        # has_valid_marker() answers the identical question read-only.
+        plan[name] = (
+            "up_to_date" if checkpoint.has_valid_marker(ckpt_name, config_slice)
+            else "would_run"
+        )
     return plan
 
 

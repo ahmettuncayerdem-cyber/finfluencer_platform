@@ -73,19 +73,29 @@ class CheckpointManager:
     def _marker_path(self, stage_name: str) -> Path:
         return self.checkpoint_root / f"{stage_name}.done"
 
-    def should_run(self, stage_name: str, config_slice: dict[str, Any]) -> bool:
-        """Return ``True`` iff the stage should run.
+    def has_valid_marker(self, stage_name: str, config_slice: dict[str, Any]) -> bool:
+        """Return ``True`` iff a ``.done`` marker exists AND matches
+        ``config_slice`` — read-only, never mutates checkpoint state.
 
-        The stage should run when either:
-            * no ``.done`` marker exists yet, or
-            * the marker's recorded config-slice hash differs from the
-              current one (upstream config changed).
+        This is the query half of :meth:`should_run`'s logic, extracted
+        so callers that must never touch disk (e.g.
+        :mod:`finfluencer.reporting.orchestrator`'s dry-run plan, whose
+        own docstring promises "never touches disk" — ADR-P2-004) have
+        a way to ask "is this stage up to date?" without triggering
+        :meth:`should_run`'s stale-marker deletion side effect.
 
-        A stale marker is deleted so it is re-created on completion.
+        :meth:`should_run` remains the method real-run callers use —
+        its mutation (deleting a stale marker so it is cleanly
+        re-created on the next completion) is intentional and several
+        collection/reporting stages depend on it (they detect the
+        deletion via their own before/after marker-existence check to
+        know whether to discard stale Tier-1 records too). This method
+        changes none of that; it only adds a side-effect-free way to
+        answer the same question.
         """
         marker = self._marker_path(stage_name)
         if not marker.exists():
-            return True
+            return False
         try:
             recorded = read_json(marker)
         except Exception as exc:  # noqa: BLE001
@@ -94,12 +104,29 @@ class CheckpointManager:
                 marker=str(marker),
                 reason=type(exc).__name__,
             ) from exc
-
         current_hash = hash_config_dict(config_slice)
-        if recorded.get("config_slice_sha256") != current_hash:
+        return recorded.get("config_slice_sha256") == current_hash
+
+    def should_run(self, stage_name: str, config_slice: dict[str, Any]) -> bool:
+        """Return ``True`` iff the stage should run.
+
+        The stage should run when either:
+            * no ``.done`` marker exists yet, or
+            * the marker's recorded config-slice hash differs from the
+              current one (upstream config changed).
+
+        A stale marker is deleted so it is re-created on completion —
+        this mutation is intentional and depended upon by real-run
+        callers (see :meth:`has_valid_marker`'s docstring). Callers that
+        must not mutate checkpoint state should call
+        :meth:`has_valid_marker` instead.
+        """
+        marker = self._marker_path(stage_name)
+        if self.has_valid_marker(stage_name, config_slice):
+            return False
+        if marker.exists():
             marker.unlink()
-            return True
-        return False
+        return True
 
     def mark_done(
         self,

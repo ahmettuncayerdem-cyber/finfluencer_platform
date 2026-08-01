@@ -55,10 +55,22 @@ def configure(
     include_stderr
         If ``False``, disable stderr output (rare — used when only file
         logging is desired).
+
+    Notes
+    -----
+    Every call re-applies its arguments and replaces the root logger's
+    handlers (see the handler-removal loop below) — this function is
+    **not** a run-once guard. It used to return immediately if any
+    prior call (including :func:`get_logger`'s own lazy default call)
+    had already run once, which meant an explicit ``configure(log_dir=...)``
+    from an entry point silently did nothing whenever any module it
+    imported had already triggered :func:`get_logger` at import time —
+    a near-certainty given this codebase's convention of module-level
+    ``_log = get_logger(__name__)`` calls (ADR-P2-003). ``_CONFIGURED``
+    is retained only so :func:`get_logger` knows whether *some*
+    configuration has happened yet, not to block this function.
     """
     global _CONFIGURED
-    if _CONFIGURED:
-        return
 
     # Common processors both for structlog-native and stdlib-wrapped calls.
     shared_processors: list[structlog.types.Processor] = [

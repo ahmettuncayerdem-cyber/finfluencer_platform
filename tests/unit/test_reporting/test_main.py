@@ -39,7 +39,7 @@ _ANALYSTS = _REPO_ROOT / "config" / "analysts.yaml"
 
 _ANALYSTS_4 = ["satiroglu", "gecer", "basaran", "yesilada"]
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 # =============================================================================
@@ -166,7 +166,7 @@ class TestAnalyzeCommand:
         _set_tmp_output_paths(tmp_path, monkeypatch)
         result = _invoke("analyze", "--stage", "not_a_real_stage")
         assert result.exit_code == 2
-        assert "must be one of" in result.output
+        assert "must be one of" in result.stderr
 
     def test_dry_run_reports_blocked_when_inputs_missing(self, tmp_path, monkeypatch):
         _set_tmp_output_paths(tmp_path, monkeypatch)
@@ -180,7 +180,7 @@ class TestAnalyzeCommand:
         _set_tmp_output_paths(tmp_path, monkeypatch)
         result = _invoke("analyze")
         assert result.exit_code == 1
-        assert "Pipeline aborted" in result.output
+        assert "Pipeline aborted" in result.stderr
 
     def test_all_runs_both_stages_and_produces_expected_files(self, tmp_path, monkeypatch):
         _set_tmp_output_paths(tmp_path, monkeypatch)
@@ -274,7 +274,7 @@ class TestReportCommand:
         _set_tmp_output_paths(tmp_path, monkeypatch)
         result = _invoke("report")
         assert result.exit_code == 1
-        assert "Pipeline aborted" in result.output
+        assert "Pipeline aborted" in result.stderr
 
 
 # =============================================================================
@@ -341,7 +341,7 @@ class TestExportCommand:
         _set_tmp_output_paths(tmp_path, monkeypatch)
         result = _invoke("export")
         assert result.exit_code == 1
-        assert "Export aborted" in result.output
+        assert "Export aborted" in result.stderr
 
     def test_export_dry_run_reports_plan_without_copying(self, tmp_path, monkeypatch):
         _set_tmp_output_paths(tmp_path, monkeypatch)
@@ -393,7 +393,7 @@ class TestExportCommand:
 
         second = _invoke("export")
         assert second.exit_code == 1
-        assert "already exists" in second.output
+        assert "already exists" in second.stderr
 
         third = _invoke("export", "--force", "--json")
         assert third.exit_code == 0, third.output

@@ -44,7 +44,7 @@ _SRC = _REPO_ROOT / "src"
 _SETTINGS = _REPO_ROOT / "config" / "settings.yaml"
 _ANALYSTS = _REPO_ROOT / "config" / "analysts.yaml"
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def _set_tmp_output_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -140,7 +140,7 @@ class TestCollectRunCommandPreserved:
     def test_run_invalid_stage_exits_2_unchanged(self):
         result = runner.invoke(cli_module.app, ["run", "--stage", "not_a_real_stage"])
         assert result.exit_code == 2
-        assert "must be one of" in result.output
+        assert "must be one of" in result.stderr
 
     def test_run_missing_upstream_input_aborts_with_exit_1(self, tmp_path, monkeypatch):
         # Real load_settings + run_pipeline call through the composed
@@ -153,7 +153,7 @@ class TestCollectRunCommandPreserved:
             ["run", "--stage", "videos", "--settings", str(_SETTINGS), "--analysts", str(_ANALYSTS)],
         )
         assert result.exit_code == 1
-        assert "Pipeline aborted" in result.output
+        assert "Pipeline aborted" in result.stderr
 
 
 # =============================================================================
@@ -196,7 +196,7 @@ class TestReportingCommandsRegistered:
             ["export", "--settings", str(_SETTINGS), "--analysts", str(_ANALYSTS)],
         )
         assert result.exit_code == 1
-        assert "Export aborted" in result.output
+        assert "Export aborted" in result.stderr
 
 
 # =============================================================================

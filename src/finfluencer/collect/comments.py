@@ -34,7 +34,7 @@ import pandas as pd
 
 from finfluencer.core.checkpoint import CheckpointManager
 from finfluencer.core.contracts import CommentRecord, Settings
-from finfluencer.core.exceptions import CollectionError
+from finfluencer.core.exceptions import CollectionError, ResourceNotFoundError
 from finfluencer.core.logging import bind_context, clear_context, get_logger
 from finfluencer.core.reproducibility import derive_seed
 from finfluencer.utils.hashing import validate_salt
@@ -243,6 +243,19 @@ def collect_comments(
                 dropped_user=dropped_user,
                 dropped_video=dropped_video,
             )
+        except ResourceNotFoundError as e:
+            # ADR-P2-002 (R2): a genuinely missing/deleted video (404).
+            # Mirrors collect/channels.py's established pattern — log
+            # and skip this one video, do not abort the remaining batch.
+            # Comments-disabled is handled upstream by the provider
+            # (CommentsDisabledError → empty list, never raised here).
+            _log.error(
+                "video_not_found",
+                video_id=video_id,
+                analyst_key=analyst_key,
+                error=str(e),
+            )
+            continue
         finally:
             clear_context()
 

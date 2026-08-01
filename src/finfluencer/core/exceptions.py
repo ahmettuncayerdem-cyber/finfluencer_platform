@@ -198,6 +198,23 @@ class ResourceNotFoundError(CollectionError):
     """Raised when a requested channel, video, or comment does not exist."""
 
 
+class CommentsDisabledError(CollectionError):
+    """Raised when a video exists but has its comments disabled.
+
+    Distinct from :class:`ResourceNotFoundError` (ADR-P2-002 / R2): the
+    video itself is real and accessible — only its comment section is
+    turned off. This is an expected, recoverable content state (the
+    correct response is "zero comments for this video", not a
+    propagated failure), not a missing-resource error. Before this
+    exception existed, comments-disabled and a genuinely missing/deleted
+    video (404) were both mapped to :class:`ResourceNotFoundError` and
+    both silently swallowed as an empty comment list — conflating "this
+    video legitimately has no comments to collect" with "this video
+    could not be found at all", which a research pipeline that reports
+    provenance for its collected corpus should not do.
+    """
+
+
 class NetworkError(CollectionError):
     """Raised on transient network failures (DNS, connection reset, etc.).
 
@@ -392,6 +409,7 @@ __all__ = [
     "QuotaExhaustedError",
     "RateLimitError",
     "ResourceNotFoundError",
+    "CommentsDisabledError",
     "NetworkError",
     # Data
     "DataError",
