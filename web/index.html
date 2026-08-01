@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<!--
+  Sprint 0 Walking Skeleton developer page (BACKLOG.md T-012).
+
+  Deliberately NOT the ADR-0001-decided React+TypeScript frontend (docs/adr/
+  0001-technology-stack.md) -- that needs its own package.json and a monorepo-layout decision
+  ADR-0001 itself left open ("The frontend stack (React/TypeScript) has no corresponding entry
+  in pyproject.toml at all; it will need its own package.json at a location T-006 also needs to
+  settle"). This is a single static HTML file with vanilla JS, served same-origin by the same
+  FastAPI app (bootstrap.py's "/" route) so there is no separate dev server, build step, or CORS
+  configuration to stand up -- the minimal thing that proves the Walking Skeleton end to end.
+  Full React adoption is deferred to a dedicated future frontend task, not decided here.
+
+  "Status list" (BACKLOG.md T-012's own purpose line) is a client-side, session-scoped table of
+  the responses this page has actually received from the API Gateway -- not a server-side list
+  query. No `ListDatasets`/`ListCollectionRunsForDataset`/`GetCollectionRun` query is implemented
+  yet (PRODUCT_ARCHITECTURE.md section 11.2 line 684); this page only ever renders state the API
+  Gateway has already returned to it directly (section 13.1's own frontend principle), never
+  state it invented or fetched from elsewhere.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Finfluencer Platform — Walking Skeleton (Sprint 0)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; color: #1a1a1a; }
+    h1 { font-size: 1.25rem; }
+    h2 { font-size: 1rem; margin-top: 2rem; }
+    form { display: flex; flex-direction: column; gap: 0.5rem; max-width: 420px; }
+    label { font-size: 0.85rem; font-weight: 600; }
+    input { padding: 0.4rem; font-size: 0.9rem; }
+    button { padding: 0.5rem; font-size: 0.9rem; cursor: pointer; width: fit-content; }
+    table { border-collapse: collapse; width: 100%; margin-top: 0.75rem; font-size: 0.85rem; }
+    th, td { border: 1px solid #ccc; padding: 0.35rem 0.5rem; text-align: left; }
+    .error { color: #b00020; font-size: 0.85rem; }
+    .hint { color: #555; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <h1>Finfluencer Research Platform — Walking Skeleton (Sprint 0)</h1>
+  <p class="hint">
+    Developer-facing page only. Calls the API Gateway exactly as a real frontend would
+    (FG-001) — never Infrastructure directly.
+  </p>
+
+  <h2>Create Project</h2>
+  <form id="create-project-form">
+    <label for="tenant-id">Tenant ID (UUID)</label>
+    <input id="tenant-id" name="tenant_id" required />
+    <label for="project-name">Project name</label>
+    <input id="project-name" name="name" required />
+    <label for="project-idem">Idempotency key</label>
+    <input id="project-idem" name="idempotency_key" required />
+    <button type="submit">Create Project</button>
+  </form>
+  <p id="create-project-error" class="error"></p>
+
+  <h2>Start Collection Run</h2>
+  <form id="start-run-form">
+    <label for="dataset-id">Dataset ID (UUID)</label>
+    <input id="dataset-id" name="dataset_id" required />
+    <label for="run-idem">Idempotency key</label>
+    <input id="run-idem" name="idempotency_key" required />
+    <button type="submit">Start Collection Run</button>
+  </form>
+  <p class="hint">
+    No <code>CreateDataset</code> command exists yet — paste any UUID (e.g. from your browser's
+    console: <code>crypto.randomUUID()</code>) to exercise this call.
+  </p>
+  <p id="start-run-error" class="error"></p>
+
+  <h2>Status list (this session only)</h2>
+  <table id="status-table">
+    <thead>
+      <tr><th>Kind</th><th>ID</th><th>Status</th><th>Detail</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const statusBody = document.querySelector("#status-table tbody");
+
+    function addStatusRow(kind, id, status, detail) {
+      const row = document.createElement("tr");
+      for (const value of [kind, id, status, detail]) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      }
+      statusBody.appendChild(row);
+    }
+
+    async function postJson(url, body) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        const detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail);
+        throw new Error(detail);
+      }
+      return payload;
+    }
+
+    document.querySelector("#create-project-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const errorEl = document.querySelector("#create-project-error");
+      errorEl.textContent = "";
+      const form = event.target;
+      try {
+        const result = await postJson("/projects", {
+          tenant_id: form.tenant_id.value,
+          name: form.name.value,
+          idempotency_key: form.idempotency_key.value,
+        });
+        addStatusRow("Project", result.id, result.status, result.name);
+      } catch (err) {
+        errorEl.textContent = err.message;
+      }
+    });
+
+    document.querySelector("#start-run-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const errorEl = document.querySelector("#start-run-error");
+      errorEl.textContent = "";
+      const form = event.target;
+      const datasetId = form.dataset_id.value;
+      try {
+        const result = await postJson(`/datasets/${datasetId}/collection-runs`, {
+          dataset_id: datasetId,
+          idempotency_key: form.idempotency_key.value,
+        });
+        addStatusRow("CollectionRun", result.id, result.status, `dataset ${result.dataset_id}`);
+      } catch (err) {
+        errorEl.textContent = err.message;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -108,6 +108,17 @@ google-api-python-client = "^2.111"
 tenacity                 = "^8.2"
 youtube-transcript-api   = "^0.6"
 
+# ---- API layer ----------------------------------------------------------------
+# fastapi: ADR-0001's already-accepted API/web framework choice (docs/adr/
+# 0001-technology-stack.md) -- not a new decision, just the first task (BACKLOG.md
+# T-012) that actually needs it added and installed. FastAPI's own request/response
+# validation is Pydantic v2, matching core/contracts.py's existing style exactly
+# (ADR-0001's own reasoning). uvicorn is the standard ASGI server every FastAPI
+# deployment needs to actually run as a process (BACKLOG.md T-014); not a separate
+# architectural decision, the uncontroversial default server for this framework.
+fastapi                  = "^0.109"
+uvicorn                  = "^0.27"
+
 # ---- NLP models and embeddings -----------------------------------------------
 # torch is pulled by transformers and sentence-transformers. We do not pin its
 # CUDA variant here; users install CPU or GPU wheels per their environment.
