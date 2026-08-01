@@ -20,7 +20,7 @@
 
 **Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment, no longer gating EPIC-01 (see Dependency Ruling below). EPIC-01 (Shared Foundation) 5/5 tasks closed (T-004, T-005, T-006, T-007, T-008 implementation — T-008's cross-vendor review outstanding, see its own entry). **EPIC-02 (Walking Skeleton) 6/6 tasks closed for Sprint 0 scope — COMPLETE.** (T-009 — Persistence-backed criterion deferred; T-010, T-011, T-012, T-013 — cross-vendor review outstanding; T-014 — human-verified and closed 2026-08-01; see each entry). **EPIC-03 (Live Collection, Sprint 1): 3/3 tasks closed — COMPLETE (live-network verification halves of T-015/T-017 environment-blocked, not code gaps).** T-015 — implementation closed, live-network half of Verification environment-blocked. T-016 — closed, retry policy implemented and tested. T-017 — implementation closed, live-network half environment-blocked (same constraint, re-confirmed not rediscovered). See each entry.
 
-**EPIC-04 (Topic Analysis, Sprint 2): 3/4 tasks closed.** T-018 — `AnalysisType`/`AnalysisRun` Domain entities implemented, cross-vendor review outstanding (non-blocking). T-019 — `TopicsAnalysisAdapter` implemented and tested. T-020 — `StartAnalysisRunOrchestrator` implemented and tested, retry-creates-new-run proven. T-021 not started. `SPRINT_2_KICKOFF.md` approved 2026-08-01. EPIC-04 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
+**EPIC-04 (Topic Analysis, Sprint 2): 4/4 tasks implementation-closed — human verification of T-021 pending.** T-018 — `AnalysisType`/`AnalysisRun` Domain entities, cross-vendor review outstanding (non-blocking). T-019 — `TopicsAnalysisAdapter`. T-020 — `StartAnalysisRunOrchestrator`, retry-creates-new-run proven. T-021 — immutability/pinning exhaustively tested, zero new production code. `SPRINT_2_KICKOFF.md` approved 2026-08-01. EPIC-04 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
 
 **Sprint progress (Sprint 0 = EPIC-00 through EPIC-02): 10 of 14 Sprint-0 tasks closed — SPRINT 0 COMPLETE.** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope), T-011 (Sprint 0 scope), T-012 (Sprint 0 scope), T-013 (Sprint 0 scope), T-014 (closed, human-verified) — every task this sprint's own scope required is closed. T-002/T-003 remain open but, per the Dependency Ruling below, never gated this closure. Formal closure documents: `SPRINT_0_RETROSPECTIVE.md`, `SPRINT_0_COMPLETION_REPORT.md`, `SPRINT_1_READINESS_ASSESSMENT.md` (2026-08-01). Sprint 0 remains CLOSED and immutable.
 
@@ -38,7 +38,7 @@
 
 **Blocked (environment, not decision):** T-002, T-003 — both re-attempted 2026-08-01, root cause precise: no Python >=3.11 interpreter obtainable in this sandbox (network-restricted from downloading one; `poetry`, 2.4.1, is installed and confirms the same constraint directly via `poetry lock`). No longer gate T-006 (see Dependency Ruling above), but remain open in their own right.
 
-**Not started:** T-021 through T-032 (EPIC-03/Sprint 1 is closed; T-018/T-019/T-020 closed 2026-08-01, see each entry). T-021 (`AnalysisRun` immutability/pinning verification) is next-in-sequence per `SPRINT_2_KICKOFF.md` — the last task in EPIC-04.
+**Not started:** T-022 through T-032 (EPIC-03/Sprint 1 and EPIC-04/Sprint 2 both implementation-closed 2026-08-01; T-021's human verification pass is the one open item, same convention as T-014). T-022 (EPIC-05, Sentiment Analysis, Sprint 3) is next-in-sequence per the Roadmap's execution phases, pending operator approval to begin Sprint 3.
 
 **Newly opened, non-blocking:** T-033 (triage ~90 untracked files found during T-001's `git status`; does not sit on the critical path).
 
@@ -443,7 +443,7 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 
 **Outcome:** `StartAnalysisRunOrchestrator` (`application/orchestrators/start_analysis_run.py`) mirrors T-011's idempotent-dispatch shape closely, with one deliberate divergence: a duplicate dispatch onto a `FAILED` `AnalysisRun` constructs and dispatches a **new** `AnalysisRun` rather than resuming in place (§10.1 line 577 — `AnalysisRun` has no `resume()`, confirmed already in T-018). New `IAnalysisRunRepository` (`domain/repositories.py`), keyed `(project_id, idempotency_key)`, with an explicit docstring flag: `add()` may be called more than once per key over a run's retry lifetime, unlike `ICollectionRunRepository`. 7 new tests, all exercising the real T-019 `TopicsAnalysisAdapter` (not mocks): happy path, duplicate-dispatch same/different keys, cross-project key isolation, fit-crash failure propagation, and the retry-creates-a-new-run proof (explicitly asserts the failed run has no `resume` attribute and its status stays `FAILED` after a successful retry under a different id). `AnalysisType`/`collection_run_id` validity is trusted as given, not verified against a repository — flagged in the Readiness Review as T-021's job, not this task's. Full regression: 711 passed, 1 skipped (was 704; +7). Walking Skeleton subset: 166 passed. IG-001: clean.
 
-### T-021 — Verify `AnalysisRun` immutability and `CollectionRun` pinning
+### T-021 — Verify `AnalysisRun` immutability and `CollectionRun` pinning — **IMPLEMENTATION CLOSED 2026-08-01; HUMAN VERIFICATION PENDING**
 **Purpose:** the first real test of §10.1's pinning rule against actual code, not just Domain Model theory.
 **Depends on:** T-020.
 **Priority:** P0. **Effort:** XS.
@@ -451,6 +451,8 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 **Acceptance criteria:** an `AnalysisRun` cannot be created without a valid `CollectionRun` reference; cannot be re-pointed after creation.
 **Verification:** the test itself.
 **Architecture:** §10.1. **Roadmap:** §4. **Playbook:** Part F.
+
+**Outcome:** Verification-only, per this task's own Effort-XS scope — zero production code changed; every invariant proven here was already implemented by T-018. New `tests/unit/test_domain/test_analysis_run_pinning_and_immutability.py` (16 tests): construction fails without any pinning reference (`project_id`/`collection_run_id`/`analysis_type_id`/`analysis_type_version`); no pinning field is settable after construction; pinning fields provably stable across every lifecycle transition; every field (not just `status`) unchanged after `COMPLETED` rejects further transitions; `AnalysisRun` has no `resume()` at all (class-level and instance-level check); a `FAILED` run stays `FAILED` regardless of what is called on it; retrying constructs a genuinely distinct instance pinned to the identical `CollectionRun`/`AnalysisType`, and the old failed instance remains untouched even after the retry succeeds. Full regression: 727 passed, 1 skipped (was 711; +16). Walking Skeleton subset: 182 passed. IG-001: clean. **This closes EPIC-04 (Topic Analysis, Sprint 2) implementation-side** — role line's "human-verified" tag means final closure awaits the operator's own confirmation pass, same convention as T-014.
 
 ---
 
