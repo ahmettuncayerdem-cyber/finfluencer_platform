@@ -18,13 +18,13 @@
 
 *Temporary Practice — regenerate this section on demand, don't hand-maintain it between real state changes.*
 
-**Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment, no longer gating EPIC-01 (see Dependency Ruling below). EPIC-01 (Shared Foundation) 5/5 tasks closed (T-004, T-005, T-006, T-007, T-008 implementation — T-008's cross-vendor review outstanding, see its own entry). EPIC-02 (Walking Skeleton) 2/6 tasks closed for Sprint 0 scope (T-009 — Persistence-backed criterion deferred; T-010 — cross-vendor review outstanding; see each entry). EPIC-03 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
+**Epic progress:** EPIC-00 (Unfreeze the Repository) 1/3 tasks closed, 2 blocked-on-environment, no longer gating EPIC-01 (see Dependency Ruling below). EPIC-01 (Shared Foundation) 5/5 tasks closed (T-004, T-005, T-006, T-007, T-008 implementation — T-008's cross-vendor review outstanding, see its own entry). EPIC-02 (Walking Skeleton) 3/6 tasks closed for Sprint 0 scope (T-009 — Persistence-backed criterion deferred; T-010, T-011 — cross-vendor review outstanding; see each entry). EPIC-03 through EPIC-07: not started. EPIC-08 (Housekeeping, non-blocking): 1 task opened, not started.
 
-**Sprint progress (Sprint 0 = EPIC-00 through EPIC-02):** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope) of 14 Sprint-0 tasks closed. Sprint 0 exit gate (T-014, Walking Skeleton deployed) remains untouched.
+**Sprint progress (Sprint 0 = EPIC-00 through EPIC-02):** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope), T-011 (Sprint 0 scope) of 14 Sprint-0 tasks closed. Sprint 0 exit gate (T-014, Walking Skeleton deployed) remains untouched.
 
 **Dependency ruling, 2026-08-01 (resolved):** T-006 originally listed `T-001, T-002, T-003, T-004, T-005` as dependencies. An evidence-only review (this file, `IMPLEMENTATION_ROADMAP.md`, `IMPLEMENTATION_PLAYBOOK.md`, `PRODUCT_ARCHITECTURE.md` — no other source consulted) found no binding sentence in any of the four conditioning package-skeleton creation on Python/test-suite readiness; `IMPLEMENTATION_ROADMAP.md` §12's related statement ("confirm the existing test suite actually passes... before any porting work begins") names *porting* work (T-007, T-010), not skeleton creation. Operator reviewed this finding and ruled T-002/T-003 do not block T-006. T-006's dependency list narrowed to `T-001, T-004, T-005` and closed same-day. T-002/T-003 remain open in their own right — EPIC-00 itself is not closed by this ruling, only the specific T-006 gate.
 
-**Completed:** T-001 (uncommitted diff resolved — commit `e7052ea`, 13 files, 1438 insertions / 37 deletions). T-004 (ADR-0001 accepted). T-005 (IG-001 wired into CI). T-006 (six-layer skeleton scaffolded). T-007 (four-entity Domain Model, architectural review passed, one Recommended finding resolved). T-008 (API Contract schema implemented and locally verified — cross-vendor review outstanding, see its own entry). T-009 (`CreateProjectOrchestrator` implemented for Sprint 0 scope — no Persistence Layer, authentication, or authorization yet, see its own entry). T-010 (`CollectionEngineAdapter` wraps `collect/`+`youtube.py`'s Protocol seam unmodified, fixture-backed, checkpoint_root partitioning resolves Risk R-1, interruption/resume proven directly — cross-vendor review outstanding, see its own entry).
+**Completed:** T-001 (uncommitted diff resolved — commit `e7052ea`, 13 files, 1438 insertions / 37 deletions). T-004 (ADR-0001 accepted). T-005 (IG-001 wired into CI). T-006 (six-layer skeleton scaffolded). T-007 (four-entity Domain Model, architectural review passed, one Recommended finding resolved). T-008 (API Contract schema implemented and locally verified — cross-vendor review outstanding, see its own entry). T-009 (`CreateProjectOrchestrator` implemented for Sprint 0 scope — no Persistence Layer, authentication, or authorization yet, see its own entry). T-010 (`CollectionEngineAdapter` wraps `collect/`+`youtube.py`'s Protocol seam unmodified, fixture-backed, checkpoint_root partitioning resolves Risk R-1, interruption/resume proven directly — cross-vendor review outstanding, see its own entry). T-011 (`StartCollectionRunOrchestrator` — first Walking Skeleton use case, idempotent dispatch with create/resume/replay handling, drives the real T-010 adapter end to end; synchronous execution and no Dataset-aggregate load flagged as deliberate Sprint 0 simplifications — cross-vendor review outstanding, see its own entry).
 
 **F-001 — Resolved 2026-08-01 via Foundation Freeze, not a numbered task.** No constitutional or implementation-planning document had ever been committed to version control (finding first surfaced during T-001's execution). Resolved by committing all nine planning/governance files across 8 commits — `a9d3b83` (Playbook, incl. Part L Collaboration Protocol, committed separately per operator instruction), `a956bc3` (governance drafts GBD-001/GEP-001), `63f94d4` (`PRODUCT_ARCHITECTURE.md`), `5718be1` (`IMPLEMENTATION_ROADMAP.md`), `ac3761f` (Baseline Report), `6fc25b5` (this file, `BACKLOG.md`), `4277abd` (ADR-0001), `9d4904c` (prompts + Context Pack template) — then tagging the result `platform-foundation-v1` (annotated, local only, no remote configured). Verified via `git show --stat` per commit (exact file lists, no scope leakage into the T-033 pile), `git status --short` (clean tracked tree), `git fsck --full` (no corruption). Repository-hygiene concern, deliberately kept outside the numbered task sequence per the Foundation Freeze classification review — see conversation history for the full Backlog-Task-vs-Milestone analysis.
 
@@ -34,11 +34,11 @@
 
 **Blocked (environment, not decision):** T-002, T-003 — both re-attempted 2026-08-01, root cause precise: no Python >=3.11 interpreter obtainable in this sandbox (network-restricted from downloading one; `poetry`, 2.4.1, is installed and confirms the same constraint directly via `poetry lock`). No longer gate T-006 (see Dependency Ruling above), but remain open in their own right.
 
-**Not started:** T-011 through T-032 (T-009 and T-010 closed for Sprint 0 scope; T-009's full closure needs a future Persistence Layer task and API-layer routing; T-010's needs the still-outstanding cross-vendor review and, eventually, a real network-backed provider adapter).
+**Not started:** T-012 through T-032 (T-009, T-010, and T-011 closed for Sprint 0 scope; T-009's full closure needs a future Persistence Layer task and API-layer routing; T-010's and T-011's need the still-outstanding cross-vendor review and, for T-010 eventually, a real network-backed provider adapter; T-011's async-dispatch/`IDatasetRepository`/`ResumeCollectionRunOrchestrator` gaps are flagged in its own entry).
 
 **Newly opened, non-blocking:** T-033 (triage ~90 untracked files found during T-001's `git status`; does not sit on the critical path).
 
-**Critical path, restated with current position:** `[T-001 ✅] → T-002 ⏸ (env-blocked, no longer gates T-006) → [T-006 ✅] → [T-007 ✅] → [T-008 ✅ impl., review outstanding] → [T-009 ✅ Sprint 0 scope] → [T-010 ✅ Sprint 0 scope, review outstanding] → T-011 → T-013 → T-014 → …` — T-004 ✅, T-005 ✅, T-006 ✅, T-007 ✅ closed. T-008/T-009 implemented 2026-08-01 (details in their own entries). T-010 implemented 2026-08-01: `CollectionEngineAdapter` (`src/finfluencer/infrastructure/collection/`) wraps the existing four-stage Collection Engine unmodified behind a new Domain interface (`ICollectionEngine`), fixture-backed (no live network yet), Risk R-1's checkpoint partitioning made explicit and tested, interruption/resume proven directly for the wrapped form (Risk R-3). 721 tests total this session across the full non-ML-dependent suite, all passing; IG-001 clean. Cross-vendor review outstanding, same as T-008/T-009's own gates. EPIC-01 (Shared Foundation) is now 5/5 implemented; EPIC-02 (Walking Skeleton) 2/6 for Sprint 0 scope. Next unblocked task: **T-011** (`StartCollectionRun` orchestrator) — its own `Depends on` line lists T-009, T-010, T-008, all now implemented for Sprint 0 scope.
+**Critical path, restated with current position:** `[T-001 ✅] → T-002 ⏸ (env-blocked, no longer gates T-006) → [T-006 ✅] → [T-007 ✅] → [T-008 ✅ impl., review outstanding] → [T-009 ✅ Sprint 0 scope] → [T-010 ✅ Sprint 0 scope, review outstanding] → [T-011 ✅ Sprint 0 scope, review outstanding] → T-013 → T-014 → …` — T-004 ✅, T-005 ✅, T-006 ✅, T-007 ✅ closed. T-008/T-009/T-010 implemented 2026-08-01 (details in their own entries). T-011 implemented 2026-08-01: `StartCollectionRunOrchestrator` (`src/finfluencer/application/orchestrators/start_collection_run.py`) is the first orchestrator to drive a real Infrastructure adapter (T-010) and the Legacy Collection Engine end to end, with idempotent create/resume/replay dispatch keyed on `(dataset_id, idempotency_key)` via a new `ICollectionRunRepository` interface. 601 tests total this session across the full non-ML/non-CLI-version-mismatch suite, all passing; IG-001 clean. Cross-vendor review outstanding, same as T-008/T-009/T-010's own gates. EPIC-01 (Shared Foundation) is now 5/5 implemented; EPIC-02 (Walking Skeleton) 3/6 for Sprint 0 scope. Next unblocked task: **T-013** — its own dependencies should be re-confirmed against this file before starting, same discipline as every prior task transition.
 
 **Parallel-work opportunities available right now:** T-002 and T-003 remain immediately startable the moment either runs in a real environment or gets a CI runner — no longer coupled to T-006's progress. T-033 can run fully in parallel with everything else, any time.
 
@@ -212,7 +212,7 @@
 
 **Not satisfied, flagged rather than silently closed:** this task's own **Role** line places it in Phase 1, cross-layer, orchestrator-shaping work — Playbook Part B.1 marks this architect-heavy tier as needing the cross-vendor reviewer "wherever a second AI vendor is actually available," and Part G's own worked example for this exact scenario calls for "AI architecture-review pass, fresh context — cross-vendor, since this touches an orchestrator pattern other modules will imitate." Not performed this session, tracked the same way as T-007/T-008's outstanding review gates. The BKG-001 layering judgment call on stage-sequencing placement (see `CONTEXT_PACK.md`) is the specific item most worth that review's attention. **Not verified for the same reason as T-006/T-007/T-008/T-009:** a true editable install (Python 3.11+ unavailable in this sandbox); local verification used `PYTHONPATH=src`, with `structlog`/`pyyaml`/`pandas`/`pyarrow`/`numpy`/`tenacity`/`typer`/`langdetect` (all pre-existing declared dependencies) installed standalone via `pip install --break-system-packages` for this session's test run.
 
-### T-011 — Implement `StartCollectionRun` orchestrator
+### T-011 — Implement `StartCollectionRun` orchestrator — **CLOSED (Sprint 0 scope) 2026-08-01**
 **Purpose:** the Application-layer contract wrapping T-010's adapter, with idempotent dispatch.
 **Depends on:** T-009, T-010, T-008.
 **Priority:** P0. **Effort:** M.
@@ -220,6 +220,76 @@
 **Acceptance criteria:** idempotency key honored (duplicate calls are safe, per Roadmap §4's "at-least-once dispatch, idempotent handlers" call); business rules live only in Application/Domain (BKG-001).
 **Verification:** duplicate-dispatch test; IG-001 CI check.
 **Architecture:** BKG-001, §12.1. **Roadmap:** §4. **Playbook:** §0.1, Part D.
+
+**Orchestration sequence, produced before implementation (operator instruction) —
+full diagram in `src/finfluencer/application/orchestrators/CONTEXT_PACK.md`:** Presentation
+(T-008 DTOs, not imported here) → Application (`StartCollectionRunOrchestrator.execute`:
+idempotency-key lookup, then create-or-resume-or-replay decision) → Domain (`CollectionRun`'s
+own `start`/`resume`/`complete`/`fail` state machine, unchanged from T-007) → Infrastructure
+Adapter (`CollectionEngineAdapter`, T-010, called via `run_id=str(collection_run.id)` — this is
+what makes constraint #7, "every CollectionRun owns its own checkpoint_root per ADR-0002,"
+concretely true) → Legacy Collection Engine (unmodified) → Result (`StartCollectionRunResult`,
+Application's own shape, not `CollectionRunAccepted` — see below on why). Every edge checked
+against IG-001 in the Context Pack, including the edges the mechanical checker doesn't cover
+for `application` (Presentation/API/Infrastructure all absent from source imports, enforced by
+a dedicated `ast`-based test, same discipline as T-009/T-010).
+
+**Outcome:** `src/finfluencer/domain/repositories.py` extended with `ICollectionRunRepository`
+(`add(collection_run, *, idempotency_key)`, `get_by_idempotency_key(dataset_id, idempotency_key)`
+— `idempotency_key` kept as repository-level bookkeeping, not a new `CollectionRun` field, so
+T-007's already-closed Domain Model is not reopened). `src/finfluencer/application/orchestrators/
+start_collection_run.py` (new) — `StartCollectionRunCommand`, `StartCollectionRunResult`,
+`StartCollectionRunOrchestrator`. Idempotent-dispatch logic: no existing run for the
+`(dataset_id, idempotency_key)` pair → create + persist + `start()` + run the engine;
+existing run `completed` → return its snapshot, no re-execution; existing run `failed` → call
+Domain's own `resume()` and re-invoke the engine with the *same* `run_id`, relying on
+`CheckpointManager`'s existing resumability (unchanged, T-010) to skip already-completed work;
+existing run `queued`/`running` → defensive no-op return (unreachable in this synchronous,
+single-process model, kept only in case a future shared-process repository makes it reachable).
+A mid-run engine exception is caught, `run.fail()` is called, then the exception is
+**re-raised** — never swallowed, same discipline as T-009/T-010.
+`src/finfluencer/application/orchestrators/CONTEXT_PACK.md` (new) — full sequence diagram,
+IG-001 edge-by-edge walkthrough, and three flagged, deliberate Sprint 0 simplifications: (1) no
+`IDatasetRepository`/`Dataset` aggregate load — `CollectionRun`'s own required `dataset_id`
+already satisfies "belongs to exactly one Dataset," and the full aggregate-consistent pattern
+needs real Persistence, not yet built; (2) **synchronous execution, not the architecture's
+stated asynchronous contract** (§11.2) — no `IJobDispatcher` exists yet, so `execute()` runs the
+whole pipeline inline and returns `"completed"`/`"failed"`, not an immediate `"queued"` response
+matching `CollectionRunAccepted`; this orchestrator's result type is deliberately its own shape,
+not that DTO, until a real async version exists; (3) no standalone `ResumeCollectionRunOrchestrator`
+(named separately in §12.3) — resume is exercised only as part of `StartCollectionRun`'s own
+idempotent-replay-of-a-failed-run path.
+
+`tests/unit/test_application/test_start_collection_run_orchestrator.py` (new) — 8 tests, run and
+passed locally this session, exercising the *real* T-010 `CollectionEngineAdapter` +
+`FixtureCollectionProvider` end to end (only the repository is a fake, per "Persistence remains
+abstract"): full pipeline completes with expected counts; the engine `run_id` used is provably
+the `CollectionRun`'s own id (checkpoint subtree named after it); duplicate dispatch with the
+same `(dataset_id, idempotency_key)` creates exactly one `CollectionRun` and never re-invokes the
+engine; different keys (or the same key against different datasets) create distinct runs;
+a mid-run crash marks the run `failed` and re-raises; **the orchestrator-level interruption/
+resume test** — first dispatch crashes 2/4 analysts in, second dispatch with the *same*
+idempotency key resumes via `CollectionRun.resume()`, reuses the same checkpoint_root, completes,
+and only recontacts the provider for the 2 remaining analysts, with the repository never gaining
+a second entry; one `ast`-based architectural-conformance test (module imports none of
+`finfluencer.presentation`/`finfluencer.api`/`finfluencer.infrastructure`/`finfluencer.collect`).
+Combined with the full pre-existing suite (same ML-dependent exclusions as T-010, plus
+`test_cli.py`, excluded for a pre-existing, unrelated `click`/`typer` API-version mismatch in
+this sandbox — `CliRunner.__init__() got an unexpected keyword argument 'mix_stderr'` — not a
+regression from this task): **601 tests passing, zero failures.**
+`python scripts/check_layer_dependencies.py`: **IG-001 clean.**
+
+**Not satisfied, flagged rather than silently closed:** cross-vendor review (Playbook Part B.1)
+remains outstanding, same as T-008/T-009/T-010 — Part G's own worked example calls this out
+explicitly for orchestrator-pattern work "other modules will imitate," which applies here at
+least as much as it did to T-010's adapter. The three Sprint 0 simplifications above (no Dataset
+aggregate load, synchronous execution, no separate Resume orchestrator) are the specific items
+most worth that review's attention. The standing question about authorizing routine
+`IMPLEMENTATION_ROADMAP.md` Risk-Register status-note edits (raised at T-010's close) remains
+unanswered — not raised again here, just still open. **Not verified for the same reason as every
+prior task:** no true editable install (Python 3.11+ unavailable in this sandbox); verification
+used `PYTHONPATH=src` against the existing installed dependency set, no new packages required
+for this task beyond what T-010 already installed.
 
 ### T-012 — Build minimal frontend: create-Project form + status list
 **Purpose:** the Presentation-layer half of the slice.
