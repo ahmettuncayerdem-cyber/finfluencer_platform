@@ -82,6 +82,14 @@ class Project:
         # `vertical_template_id` field is added here rather than pointing at an entity type
         # that does not exist yet.
 
+        # TODO(PRODUCT_ARCHITECTURE.md section 10.1, AnalysisType, lines 533-541): referenced
+        # by `VerticalTemplate` (as a default, line 526) and by the not-yet-implemented
+        # `AnalysisRun` (as the type actually executed, line 536) -- Project does not own or
+        # reference an AnalysisType directly, but its future arrival travels through the same
+        # VerticalTemplate/AnalysisRun extension points already flagged above and below. Cross-
+        # vendor review finding, 2026-08-01 (Recommended): flagged as the one deferred entity of
+        # eleven missing a dedicated line-range citation; added here to close that gap.
+
         # TODO(PRODUCT_ARCHITECTURE.md section 10.1, AnalysisRun, lines 573-581; and
         # InterpretationRecord, Report, Export, lines 583-611): Project "owns many
         # `AnalysisRun`, many `InterpretationRecord` (transitively, via `AnalysisRun`), many
