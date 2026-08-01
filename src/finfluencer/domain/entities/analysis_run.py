@@ -74,11 +74,11 @@ class AnalysisRun:
         self._analysis_type_version = analysis_type_version
         self._status = AnalysisRunStatus.QUEUED
 
-        # TODO(PRODUCT_ARCHITECTURE.md section 10.1, InterpretationRecord, lines 583-591):
-        # "owns many `InterpretationRecord`" (line 576). InterpretationRecord is not implemented
-        # until BACKLOG.md T-024 (EPIC-06) -- this entity's `id` remains a stable,
-        # immutable-once-`completed` identifier for a future `InterpretationRecord` to pin to,
-        # without any change needed here, same pattern `CollectionRun` already established.
+        # NOTE (was a TODO; resolved by BACKLOG.md T-024): "owns many `InterpretationRecord`"
+        # (line 576). `InterpretationRecord` is now implemented (`interpretation_record.py`)
+        # and pins to this entity's `id` via its own `analysis_run_id` field -- no change was
+        # needed here, exactly as anticipated (this entity's `id` was already a stable,
+        # immutable-once-`completed` identifier, same pattern `CollectionRun` established).
 
         # TODO(PRODUCT_ARCHITECTURE.md section 10.1, line 579): "keyed by its manifest hash
         # (Reproducibility & Experiment Tracking, section 8.3)". Manifest-hash computation is

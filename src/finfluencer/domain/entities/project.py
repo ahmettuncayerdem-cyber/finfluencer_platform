@@ -4,10 +4,14 @@
     "the unit a researcher thinks in ("my study"); owns everything beneath it, per this
     turn's explicit instruction." (line 544)
 
-Sprint 0 scope note (BACKLOG.md T-007): of everything section 10.1 says Project owns, only
-`Dataset` is implemented as an in-memory child collection here -- `AnalysisRun`,
-`InterpretationRecord`, `Report`, `Export`, `ProjectMembership`, and `AuditLogEntry` are all out
-of scope for this task and are marked with TODOs below at their exact ownership line.
+Sprint 0 scope note (BACKLOG.md T-007), updated by T-018 and T-024: of everything section 10.1
+says Project owns, only `Dataset` is implemented as an in-memory child collection here (via
+`add_dataset()`/`_datasets`). `AnalysisRun` (T-018) and `InterpretationRecord`/`Report`/`Export`
+(T-024) are now implemented, but as standalone entities identified by a `project_id` field --
+none of the three is held in a `Project`-owned collection, the same one-directional-reference
+convention `AnalysisRun` already established (no `Project._analysis_runs` list exists either).
+`ProjectMembership` and `AuditLogEntry` remain out of scope, marked with TODOs below at their
+exact ownership line.
 
 Archival is modeled as the aggregate-root-level concern section 10.1 says it is:
 
@@ -90,12 +94,13 @@ class Project:
         # vendor review finding, 2026-08-01 (Recommended): flagged as the one deferred entity of
         # eleven missing a dedicated line-range citation; added here to close that gap.
 
-        # TODO(PRODUCT_ARCHITECTURE.md section 10.1, AnalysisRun, lines 573-581; and
-        # InterpretationRecord, Report, Export, lines 583-611): Project "owns many
+        # NOTE (was a TODO; resolved by BACKLOG.md T-018 and T-024): Project "owns many
         # `AnalysisRun`, many `InterpretationRecord` (transitively, via `AnalysisRun`), many
-        # `Report`, many `Export` (transitively, via `Report`)" (line 546). None of these four
-        # entities are implemented in Sprint 0 (BACKLOG.md T-007 scopes only Tenant, Project,
-        # Dataset, CollectionRun).
+        # `Report`, many `Export` (transitively, via `Report`)" (line 546). All four entities
+        # are now implemented (`domain/entities/analysis_run.py`, `interpretation_record.py`,
+        # `report.py`, `export.py`), each carrying a `project_id`/`analysis_run_id`/etc.
+        # reference back to its owner -- but none is collected into a `Project`-owned list
+        # here, deliberately (see this module's own docstring, updated above).
 
         # TODO(PRODUCT_ARCHITECTURE.md section 10.1, ProjectMembership, lines 513-521): Project
         # "owns many `ProjectMembership`" (line 546). Not implemented -- arrives with future

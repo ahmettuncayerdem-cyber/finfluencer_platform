@@ -22,7 +22,9 @@
 
 **EPIC-04 (Topic Analysis, Sprint 2): 4/4 tasks CLOSED — SPRINT 2 COMPLETE.** T-018 — `AnalysisType`/`AnalysisRun` Domain entities, cross-vendor review outstanding (non-blocking). T-019 — `TopicsAnalysisAdapter`. T-020 — `StartAnalysisRunOrchestrator`, retry-creates-new-run proven. T-021 — immutability/pinning exhaustively tested, zero new production code, human-verified 2026-08-01. `SPRINT_2_KICKOFF.md` approved 2026-08-01.
 
-**EPIC-05 (Sentiment Analysis, Sprint 3): 2/2 tasks CLOSED — SPRINT 3 COMPLETE.** T-022 — `SentimentAnalysisAdapter` wraps `sentiment.pipeline.run_sentiment` unmodified, second `IAnalysisEngine` implementation. T-023 — verified zero orchestrator diff since T-020 (`git diff`-confirmed, plus structural dispatch/signature/no-branching proof). ARB-01 — plugin architecture formally reviewed 2026-08-01, 8/10 dimensions Accept, 2/10 Generalize (non-blocking, tracked as TD-03/TD-04); no architectural changes recommended. **Sprint 3 formally CLOSED 2026-08-01** — see Sprint 3 Closure Report (this session). Sprint 4 (EPIC-06, Reporting/MVP core loop, T-024 onward) awaits its own Kickoff and Sprint Authorization. EPIC-06 through EPIC-08 (except the housekeeping item below): not started.
+**EPIC-05 (Sentiment Analysis, Sprint 3): 2/2 tasks CLOSED — SPRINT 3 COMPLETE.** T-022 — `SentimentAnalysisAdapter` wraps `sentiment.pipeline.run_sentiment` unmodified, second `IAnalysisEngine` implementation. T-023 — verified zero orchestrator diff since T-020 (`git diff`-confirmed, plus structural dispatch/signature/no-branching proof). ARB-01 — plugin architecture formally reviewed 2026-08-01, 8/10 dimensions Accept, 2/10 Generalize (non-blocking, tracked as TD-03/TD-04); no architectural changes recommended. **Sprint 3 formally CLOSED 2026-08-01.**
+
+**EPIC-06 (Reporting / MVP Core Loop, Sprint 4): 1/5 tasks closed.** `SPRINT_4_KICKOFF.md` approved 2026-08-01. T-024 — `InterpretationRecord`/`Report`/`Export` Domain entities, `Report` structurally never references `AnalysisRun` (ast-verified). T-025 (`GenerateReport` command) is next-in-sequence, awaiting its own Task Authorization. EPIC-07/EPIC-08 (except the housekeeping item below): not started.
 
 **Sprint progress (Sprint 0 = EPIC-00 through EPIC-02): 10 of 14 Sprint-0 tasks closed — SPRINT 0 COMPLETE.** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope), T-011 (Sprint 0 scope), T-012 (Sprint 0 scope), T-013 (Sprint 0 scope), T-014 (closed, human-verified) — every task this sprint's own scope required is closed. T-002/T-003 remain open but, per the Dependency Ruling below, never gated this closure. Formal closure documents: `SPRINT_0_RETROSPECTIVE.md`, `SPRINT_0_COMPLETION_REPORT.md`, `SPRINT_1_READINESS_ASSESSMENT.md` (2026-08-01). Sprint 0 remains CLOSED and immutable.
 
@@ -40,7 +42,7 @@
 
 **Blocked (environment, not decision):** T-002, T-003 — both re-attempted 2026-08-01, root cause precise: no Python >=3.11 interpreter obtainable in this sandbox (network-restricted from downloading one; `poetry`, 2.4.1, is installed and confirms the same constraint directly via `poetry lock`). No longer gate T-006 (see Dependency Ruling above), but remain open in their own right.
 
-**Not started:** T-024 through T-032. Sprint 3 (EPIC-05) is formally CLOSED 2026-08-01. Next-in-sequence: Sprint 4 (EPIC-06, Reporting/MVP core loop) Kickoff, then its own Sprint Authorization, then Task Authorization for T-024.
+**Not started:** T-025 through T-032. `SPRINT_4_KICKOFF.md` and T-024's own Readiness Review approved 2026-08-01; T-024 authorized and closed same day. T-025 (`GenerateReport` command) is next-in-sequence, awaiting its own Task Authorization.
 
 **Newly opened, non-blocking:** T-033 (triage ~90 untracked files found during T-001's `git status`; does not sit on the critical path).
 
@@ -486,7 +488,7 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 
 ## EPIC-06 — Reporting / MVP Core Loop *(Sprint 4)*
 
-### T-024 — Extend Domain Model: `InterpretationRecord` (kind=`raw_result_snapshot`), `Report`, `Export`
+### T-024 — Extend Domain Model: `InterpretationRecord` (kind=`raw_result_snapshot`), `Report`, `Export` — **CLOSED 2026-08-01**
 **Purpose:** the reporting entities MVP needs — deliberately without the `ai_generated` kind, which is out of scope until Phase 2.
 **Depends on:** T-021.
 **Priority:** P0. **Effort:** M.
@@ -494,6 +496,8 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 **Acceptance criteria:** `Report` cites only immutable `InterpretationRecord` entities, never a live `AnalysisRun` pointer, per §10.0.
 **Verification:** a test asserting a `Report`'s citations are frozen snapshots, not live references.
 **Architecture:** §10.0, §10.1. **Roadmap:** §4 (Reporting does not require AI — the key sequencing fact). **Playbook:** Part B.1.
+
+**Outcome:** Three new standalone Domain entities, mirroring `AnalysisRun`'s (T-018) established conventions exactly — `_common.py` primitives, `_reject_if_<terminal>()` guards, TODO comments citing exact architecture line ranges. `InterpretationRecord` (`interpretation_record.py`): `kind: InterpretationRecordKind` with only `RAW_RESULT_SNAPSHOT` implemented (`AI_GENERATED` explicitly not added — flagged, not built speculatively); zero mutating methods, immutable from construction (stronger than `CollectionRun`/`AnalysisRun`'s "immutable once completed" — there is no non-terminal state to guard). `Report` (`report.py`): **never imports `AnalysisRun`** — citations stored as `InterpretationRecord.id` only, verified by an ast-based no-import test (T-023's technique reused), structurally enforcing §10.0's "cites InterpretationRecord, never a live AnalysisRun pointer" rule rather than relying on convention; `draft → finalized` lifecycle, `add_citation()`/`finalize()`, a `version: int` field for a future (not-yet-ticketed) create-new-version command. `Export` (`export.py`): pins `(report_id, report_version)` together — not just `report_id` — so a later Report edit can never silently change what an already-generated Export represents; `ExportFormat` with only `PDF` implemented (`WORD`, tagged v1.x in §8.4, deliberately not added). One flagged assumption: `InterpretationRecord.content`'s serialization format is unspecified by the architecture (only a `selector` parameter is named, §11.2) — left as an opaque `str`, with the actual table/stat-to-string encoding deferred to T-025. Housekeeping: corrected two stale TODO comments (`project.py`, `analysis_run.py`) that still said `AnalysisRun`/`InterpretationRecord` were unimplemented after T-018 had already implemented one of them — documentation-only, zero behavioral change. 26 new tests (construction validation, immutability, ast-based no-`AnalysisRun`-import check, finalized-Report rejects further mutation, `Export` pinning). Full regression: 783 passed, 1 skipped (was 757; +26). Walking Skeleton subset: 218 passed (was 192; +26). IG-001: clean. Cross-vendor review mandatory per this task's own Role line (Domain Model change) — added to the existing outstanding batch (now T-008/010/011/012/013/015/016/017/018/024), not newly blocking.
 
 ### T-025 — Implement `GenerateReport` command
 **Purpose:** turn `AnalysisRun` output into citable `raw_result_snapshot` records.
