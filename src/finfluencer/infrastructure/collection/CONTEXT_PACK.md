@@ -50,12 +50,16 @@ command itself.
   CheckpointManager` — **Wrapper required** (`IMPLEMENTATION_ROADMAP.md` §3's Collection Engine
   row). Called unmodified, exactly as they exist today; zero lines changed in any of these
   files by BACKLOG.md T-010.
-- `finfluencer.providers.platform.youtube.YouTubePlatformProvider` — **not wrapped by this
-  task.** T-010 is explicitly scoped "no live network dependency yet" (BACKLOG.md); only
-  `FixtureCollectionProvider` (this package, `fixture_provider.py`) is wired in.
-  `CollectionEngineAdapter` depends on the `PlatformProvider` Protocol only, so a real,
-  network-backed provider adapter is a pure constructor-argument swap for whichever future,
-  not-yet-numbered task wraps `youtube.py` for live use — no change to this class.
+- `finfluencer.providers.platform.youtube.YouTubePlatformProvider` — **wrapped as of T-015**
+  (`live_provider.py`, `build_live_collection_engine`). Confirms the prediction made when this
+  line was first written: the swap required zero changes to `CollectionEngineAdapter` itself.
+  T-015 reuses `finfluencer.collect.main.build_provider_and_quota(cfg)` — the same factory
+  `run_pipeline` already used — rather than hand-constructing `YouTubePlatformProvider`, so the
+  registry lookup (`cfg.settings.providers.platform == "youtube"`) and `QuotaTracker`
+  construction stay centralized in one place. `FixtureCollectionProvider` remains the default
+  wiring for `bootstrap.py` (T-012, Sprint 0, untouched) — the live path is opt-in, constructed
+  explicitly by a caller (see `scripts/t015_live_smoke_test.py`), not a replacement default,
+  since standing it up by default would spend real API quota on every dev-page load.
 - **Judgment call, flagged explicitly:** `PRODUCT_ARCHITECTURE.md` §12.1 describes Application
   as owning "sequencing" (line 827) and Infrastructure as implementing interfaces (lines
   842-848). `CollectionEngineAdapter.run()` sequences four stage calls internally, which could
@@ -80,9 +84,21 @@ command itself.
   `collect/main.py::run_pipeline`'s existing behavior exactly) — unchanged legacy behavior, not
   a new secret-handling decision, but worth a fresh look whenever secret management is
   formalized (`PRODUCT_ARCHITECTURE.md` §16.19).
-- **No real, network-backed `PlatformProvider` adapter exists yet** — `FixtureCollectionProvider`
-  is the only implementation wired in. Revisit trigger: the first task that needs live YouTube
-  data rather than a canned fixture.
+- **No retry loop exists for transient errors, despite the docstring claiming one** —
+  `youtube.py`'s own module docstring states "Only transient errors (RateLimit, NetworkError)
+  are retried," but no retry loop or `tenacity` usage exists anywhere in `providers/platform/
+  youtube.py` or `collect/*.py` (confirmed by direct search during T-015). Discovered, not
+  introduced, by T-015; documented here so it is not mistaken for new information later.
+  Revisit trigger: T-016 (quota/rate-limit handling and retry policy), BACKLOG.md.
+- **Live-network half of T-015's own Verification line could not be executed in the
+  implementation sandbox** — that sandbox's outbound proxy returns `403` on `CONNECT` to
+  `googleapis.com` (confirmed via direct `curl`, and again via a real `httplib2.socks.HTTPError`
+  deep inside `scripts/t015_live_smoke_test.py`'s own execution). This is an environment
+  constraint, not a code defect: the entire wiring chain (registry → `YouTubePlatformProvider`
+  construction → `QuotaTracker` → `CollectionEngineAdapter` → `collect/*.py` stages) is proven
+  correct up to the network boundary by `tests/unit/test_infrastructure/test_collection/
+  test_live_provider.py`'s stubbed-client tests. Revisit trigger: run
+  `scripts/t015_live_smoke_test.py` in an environment with real egress to `googleapis.com`.
 
 ## Gotchas
 
@@ -99,3 +115,12 @@ command itself.
 - `CollectionEngineAdapter._paths_for(run_id)` is the one place Roadmap Risk R-1's
   checkpoint-partitioning discipline is enforced — do not add a code path that lets two
   distinct `run_id`s resolve to the same `checkpoint_root`.
+- **`tests/conftest.py`'s `autouse=True` `_reset_registry` fixture only re-imports the
+  `language` provider subpackage after clearing the registry, not `platform`** (T-015 finding).
+  Any test that exercises registry-based `platform` lookup (i.e. `build_provider_and_quota`,
+  hence `build_live_collection_engine`) in isolation must re-register `platform:youtube` itself
+  — see `test_live_provider.py::_ensure_youtube_provider_registered` for the pattern (an
+  `autouse` fixture that depends on `_reset_registry` by name, then calls
+  `register("platform", "youtube")(YouTubePlatformProvider)` directly). `conftest.py` itself was
+  deliberately left unmodified — this is shared test infrastructure outside T-015's scope, and
+  the local workaround is sufficient.
