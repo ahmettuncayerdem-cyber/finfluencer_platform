@@ -21,13 +21,19 @@ after a `FAILED` attempt persists a *new* `AnalysisRun` and re-points the key's 
 `ICollectionRunRepository.add()` is called exactly once per key because Collection resumes the
 same instance in place instead.
 
+BACKLOG.md T-025 adds `get_by_id` to `IAnalysisRunRepository` (a genuine, minimal gap found
+during T-025's Readiness Review: `GenerateReportOrchestrator` receives an `analysis_run_id`
+directly, not an idempotency key, and no existing method could look one up by id), plus two new
+Protocols -- `IReportRepository`, `IInterpretationRecordRepository` -- exactly the methods
+`GenerateReportOrchestrator` needs, same minimal-surface discipline as every repository above.
+
 No concrete implementation exists anywhere in this repository yet. BACKLOG.md T-009/T-011/T-020
 explicitly exclude Persistence Layer work ("No persistence implementation yet," operator
 instruction, 2026-08-01). A test double implementing any of these `Protocol`s (as used in
 `tests/unit/test_application/test_create_project_orchestrator.py`,
-`test_start_collection_run_orchestrator.py`, and `test_start_analysis_run_orchestrator.py`) is an
-ordinary test fixture, not a Persistence-layer implementation -- it never touches
-`src/finfluencer/persistence/`.
+`test_start_collection_run_orchestrator.py`, `test_start_analysis_run_orchestrator.py`, and
+`test_generate_report_orchestrator.py`) is an ordinary test fixture, not a Persistence-layer
+implementation -- it never touches `src/finfluencer/persistence/`.
 """
 
 from __future__ import annotations
@@ -37,7 +43,9 @@ from typing import Protocol
 from finfluencer.domain.entities._common import EntityId
 from finfluencer.domain.entities.analysis_run import AnalysisRun
 from finfluencer.domain.entities.collection_run import CollectionRun
+from finfluencer.domain.entities.interpretation_record import InterpretationRecord
 from finfluencer.domain.entities.project import Project
+from finfluencer.domain.entities.report import Report
 
 
 class IProjectRepository(Protocol):
@@ -118,4 +126,52 @@ class IAnalysisRunRepository(Protocol):
 
         Returns `None` on no match -- the orchestrator's signal to create a new AnalysisRun.
         """
+        ...
+
+    def get_by_id(self, project_id: EntityId, analysis_run_id: EntityId) -> AnalysisRun | None:
+        """Look up a specific, already-known AnalysisRun by its own id (BACKLOG.md T-025).
+
+        Unlike `get_by_idempotency_key`, the caller here already knows exactly which
+        AnalysisRun it wants (e.g. `GenerateReportOrchestrator`'s command carries an
+        `analysis_run_id` directly, not an idempotency key). Returns `None` on no match, or if
+        `analysis_run_id` does not belong to `project_id` -- callers must not be able to read
+        another Project's AnalysisRun by guessing its id.
+        """
+        ...
+
+
+class IReportRepository(Protocol):
+    """Domain- and Application-owned interface, per section 12.1 lines 831/839 above.
+
+    Two methods only -- exactly what `GenerateReportOrchestrator` (T-025) needs. No `update`
+    method: a `Report`'s in-memory state (citations, `finalize()`) mutates the same object
+    reference the orchestrator already holds, same reasoning `ICollectionRunRepository` already
+    documents for `CollectionRun`.
+    """
+
+    def add(self, report: Report) -> None:
+        """Persist a newly created Report."""
+        ...
+
+    def get_by_id(self, project_id: EntityId, report_id: EntityId) -> Report | None:
+        """Look up a specific Report by its own id, scoped to `project_id` (same
+        cross-Project-isolation reasoning as `IAnalysisRunRepository.get_by_id`). Returns
+        `None` on no match -- the orchestrator's signal that `GenerateReportCommand`'s optional
+        `existing_report_id` does not resolve to a real, accessible Report.
+        """
+        ...
+
+
+class IInterpretationRecordRepository(Protocol):
+    """Domain- and Application-owned interface, per section 12.1 lines 831/839 above.
+
+    One method only -- `InterpretationRecord` is immutable and never looked back up by this
+    task's own orchestrator (once cited into a Report, only the Report's own `citation_ids` are
+    read again). A `get` method arrives with whichever future task first needs to read one back
+    directly (e.g. `GetInterpretation`, section 11.2 line 710) -- not designed speculatively
+    ahead of what T-025 needs, same discipline every repository above follows.
+    """
+
+    def add(self, record: InterpretationRecord) -> None:
+        """Persist a newly created InterpretationRecord."""
         ...
