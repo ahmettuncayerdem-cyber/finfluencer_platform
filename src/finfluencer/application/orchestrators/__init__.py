@@ -9,9 +9,13 @@ T-011's idempotent-dispatch shape, but a duplicate dispatch onto a failed run cr
 `AnalysisRun` rather than resuming in place (section 10.1 line 577; no `resume()` exists for
 `AnalysisRun`). BACKLOG.md T-025 adds ``GenerateReportOrchestrator`` -- the Reporting-side
 equivalent, turning a completed `AnalysisRun` into a citable `InterpretationRecord` and a
-`Report`; zero AI interpretation logic anywhere in it (kind=`raw_result_snapshot` only). Grows
-one module per command as each vertical slice needs it, not designed speculatively ahead of
-time. See `CONTEXT_PACK.md` for T-011's orchestration-sequence diagram and IG-001 walkthrough.
+`Report`; zero AI interpretation logic anywhere in it (kind=`raw_result_snapshot` only).
+BACKLOG.md T-026 adds ``ExportReportTableOrchestrator`` -- resolves a `Report`'s citations back
+to their source `AnalysisRun`s/`CollectionRun` and exports the joined table via
+`reporting.master_table` (wrapped unmodified); constructs no Domain `Export` entity (section
+10.1 restricts `Export` to PDF/Word). Grows one module per command as each vertical slice needs
+it, not designed speculatively ahead of time. See `CONTEXT_PACK.md` for T-011's
+orchestration-sequence diagram and IG-001 walkthrough.
 """
 
 from __future__ import annotations
@@ -20,6 +24,11 @@ from finfluencer.application.orchestrators.create_project import (
     CreateProjectCommand,
     CreateProjectOrchestrator,
     CreateProjectResult,
+)
+from finfluencer.application.orchestrators.export_report_table import (
+    ExportReportTableCommand,
+    ExportReportTableOrchestrator,
+    ExportReportTableResult,
 )
 from finfluencer.application.orchestrators.generate_report import (
     GenerateReportCommand,
@@ -41,6 +50,9 @@ __all__ = [
     "CreateProjectCommand",
     "CreateProjectOrchestrator",
     "CreateProjectResult",
+    "ExportReportTableCommand",
+    "ExportReportTableOrchestrator",
+    "ExportReportTableResult",
     "GenerateReportCommand",
     "GenerateReportOrchestrator",
     "GenerateReportResult",

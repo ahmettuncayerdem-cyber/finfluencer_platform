@@ -27,6 +27,10 @@ directly, not an idempotency key, and no existing method could look one up by id
 Protocols -- `IReportRepository`, `IInterpretationRecordRepository` -- exactly the methods
 `GenerateReportOrchestrator` needs, same minimal-surface discipline as every repository above.
 
+BACKLOG.md T-026 adds `get_by_id` to `IInterpretationRecordRepository` -- `ExportReportTableOrchestrator`
+needs to resolve a Report's citations back to their source AnalysisRuns' CollectionRun, same
+"add the exact method the current task needs" discipline as every repository extension above.
+
 No concrete implementation exists anywhere in this repository yet. BACKLOG.md T-009/T-011/T-020
 explicitly exclude Persistence Layer work ("No persistence implementation yet," operator
 instruction, 2026-08-01). A test double implementing any of these `Protocol`s (as used in
@@ -165,13 +169,24 @@ class IReportRepository(Protocol):
 class IInterpretationRecordRepository(Protocol):
     """Domain- and Application-owned interface, per section 12.1 lines 831/839 above.
 
-    One method only -- `InterpretationRecord` is immutable and never looked back up by this
-    task's own orchestrator (once cited into a Report, only the Report's own `citation_ids` are
-    read again). A `get` method arrives with whichever future task first needs to read one back
-    directly (e.g. `GetInterpretation`, section 11.2 line 710) -- not designed speculatively
-    ahead of what T-025 needs, same discipline every repository above follows.
+    `add()` only, until BACKLOG.md T-026: `InterpretationRecord` is immutable and T-025's own
+    orchestrator never looked one back up (once cited into a Report, only the Report's own
+    `citation_ids` were read again). T-026 adds `get_by_id` -- exactly the "whichever future
+    task first needs to read one back directly" case T-025's own docstring anticipated, needed
+    here to resolve a Report's citations back to their source AnalysisRuns for table export.
     """
 
     def add(self, record: InterpretationRecord) -> None:
         """Persist a newly created InterpretationRecord."""
+        ...
+
+    def get_by_id(self, record_id: EntityId) -> InterpretationRecord | None:
+        """Look up a specific InterpretationRecord by its own id.
+
+        No `project_id` scoping parameter -- `InterpretationRecord` itself carries no
+        `project_id` field (only `analysis_run_id`, section 10.1 line 586); cross-project
+        isolation is enforced one level down, by the caller's own subsequent
+        `IAnalysisRunRepository.get_by_id(project_id, record.analysis_run_id)` call returning
+        `None` for a record whose AnalysisRun belongs to another project.
+        """
         ...

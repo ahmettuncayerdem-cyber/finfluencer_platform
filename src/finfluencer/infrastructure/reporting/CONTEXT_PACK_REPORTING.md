@@ -1,27 +1,36 @@
-# Context Pack — Reporting Engine Infrastructure Adapter
+# Context Pack — Reporting Engine Infrastructure Adapters
 
-Full workflow: `IMPLEMENTATION_PLAYBOOK.md` Part B.2.
+Full workflow: `IMPLEMENTATION_PLAYBOOK.md` Part B.2. Covers both adapters in this package:
+`ResultSnapshotAdapter` (T-025) and `MasterTableExportAdapter` (T-026) — kept in one Context
+Pack, unlike `topics`/`sentiment`'s two separate packs, because both are Reporting-internal
+capabilities on the same `Report`/`InterpretationRecord` data, not two independent pluggable
+`AnalysisType`s.
 
 ## Purpose
 
-Implements `finfluencer.domain.reporting_engine.IResultSnapshotReader` by reading one
-`AnalysisRun`'s own result parquet and serializing it to a JSON string, behind one adapter class
-(`ResultSnapshotAdapter`). Exists so `GenerateReportOrchestrator` (BACKLOG.md T-025) can turn a
-completed `AnalysisRun`'s output into `InterpretationRecord.content` (kind=`raw_result_snapshot`)
-through one Domain-safe method call, without knowing or caring how or where the result is stored
-on disk.
+- **`ResultSnapshotAdapter`** implements `IResultSnapshotReader` by reading one `AnalysisRun`'s
+  own result parquet and serializing it to a JSON string. Exists so `GenerateReportOrchestrator`
+  (T-025) can turn a completed `AnalysisRun`'s output into `InterpretationRecord.content` (kind=
+  `raw_result_snapshot`) through one Domain-safe method call.
+- **`MasterTableExportAdapter`** implements `ITableExporter` by wrapping
+  `reporting.master_table.build_master_table`/`save_master_table` unmodified. Exists so
+  `ExportReportTableOrchestrator` (T-026) can export a `Report`'s cited `AnalysisRun`s as one
+  joined table, reusing the tested join logic exactly.
 
 ## Domain entities and invariants owned or touched
 
-Owns no §10.1 entity directly. Touches `AnalysisRun` only by convention (its `id` is the
-`analysis_run_id` parameter) and `InterpretationRecord` only indirectly (this adapter produces
-the `content` a caller constructs one from; it never constructs the entity itself).
+Owns no §10.1 entity directly. Touches `AnalysisRun` only by convention (ids as parameters),
+`InterpretationRecord` only indirectly, and — for `MasterTableExportAdapter` — `CollectionRun`
+only by convention (`collection_run_id` as a parameter, used solely to resolve `comments_path`).
+Neither adapter constructs or mutates any Domain entity, including `Export` — see Integration
+decisions below for why T-026 does not produce an `Export` entity at all.
 
 ## API Contract operations implemented
 
-None directly. This adapter is the Infrastructure seam `GenerateReportOrchestrator`'s
-Application-layer implementation depends on to satisfy the `CreateRawSnapshot` interaction
-(§11.2 line 722), not the command itself.
+None directly. These adapters are the Infrastructure seams `GenerateReportOrchestrator`'s and
+`ExportReportTableOrchestrator`'s Application-layer implementations depend on to satisfy the
+`CreateRawSnapshot` (§11.2 line 722) and table-export (§8.4) interactions, not the commands
+themselves.
 
 ## Guardrails that bind this module
 
@@ -53,6 +62,25 @@ Application-layer implementation depends on to satisfy the `CreateRawSnapshot` i
   partial-selector query language.** `selector` (named in §11.2's `CreateRawSnapshot`) is
   produced by the orchestrator as a fixed value for this task's scope, not interpreted by this
   adapter at all — this adapter always returns the complete result.
+- **`MasterTableExportAdapter` DOES reuse `reporting.master_table.build_master_table()`/
+  `save_master_table()`, unmodified — zero lines changed.** This is the correct reuse target
+  BACKLOG.md always assigned to T-026 (not T-025, see `ResultSnapshotAdapter`'s own entry
+  above): a joined, cross-`AnalysisType` table is exactly what a `Report` citing both a topics-
+  and a sentiment-`AnalysisRun` needs exported as one file.
+- **T-026 constructs no Domain `Export` entity.** §10.1 line 604 restricts `Export`/
+  `ExportFormat` to "PDF or Word" — CSV/table generation is the separate "manuscript-ready table
+  objects... available for in-app viewing before export" capability §8.4 names, which needs no
+  new entity. Verified against the frozen architecture text during T-026's own Readiness Review
+  before deciding, not assumed; no Domain Model extension was made for this reason.
+- **`MasterTableExportAdapter` resolves `topics_path`/`sentiment_path` by presence among the
+  given `analysis_run_ids`, duplicating `ResultSnapshotAdapter`'s own resolution-by-presence
+  logic rather than sharing it.** Accepted deliberately: two small, independent adapters, not
+  yet a pattern worth extracting a shared base class for (this turn's own instruction: "do not
+  introduce speculative abstractions").
+- **`ExportReportTableOrchestrator` requires every citation in a `Report` to pin to the same
+  `CollectionRun`.** A joined master table has no coherent meaning across two different
+  `CollectionRun`s' comments — this invariant is enforced in the orchestrator (Application),
+  never in this adapter, per BKG-001.
 
 ## Known technical debt
 
@@ -70,8 +98,16 @@ Application-layer implementation depends on to satisfy the `CreateRawSnapshot` i
 
 ## Gotchas
 
-- Raises `FileNotFoundError` if neither known filename exists (e.g. the `AnalysisRun` isn't
-  actually completed yet, or was written by a future adapter this module doesn't know about) and
-  `ValueError` if somehow both exist for the same `analysis_run_id` (should be structurally
-  impossible today — each `AnalysisRun` produces exactly one output file — but checked
-  explicitly rather than silently picking one).
+- `ResultSnapshotAdapter.read()` raises `FileNotFoundError` if neither known filename exists
+  (e.g. the `AnalysisRun` isn't actually completed yet, or was written by a future adapter this
+  module doesn't know about) and `ValueError` if somehow both exist for the same
+  `analysis_run_id` (should be structurally impossible today — each `AnalysisRun` produces
+  exactly one output file — but checked explicitly rather than silently picking one).
+- `MasterTableExportAdapter.export()` raises `FileNotFoundError` if the given `analysis_run_ids`
+  don't collectively resolve to both a topics and a sentiment path — `build_master_table()`
+  itself requires all three source tables, so a `Report` citing only one `AnalysisType` cannot
+  be table-exported yet (a real limitation, not a bug; flagged as Known technical debt above,
+  same "T-025's own Verification line already assumed two-run scenarios" reasoning).
+- `MasterTableExportAdapter.export()` inherits `build_master_table()`'s own
+  `CorpusValidationError` if any of the three resolved source tables is empty — not caught or
+  suppressed here.
