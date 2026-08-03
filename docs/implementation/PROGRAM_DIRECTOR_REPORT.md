@@ -19,6 +19,62 @@ real state changes.
 
 ---
 
+## New Finding — `poetry.lock` Stale Relative to `pyproject.toml` (2026-08-03)
+
+Operator attempted `#1` (real installation verification) on the ENV-01/ENV-02-resolved machine.
+Literal result: **`poetry install --sync` did not complete.**
+
+```
+PS D:\Projects\finfluencer_platform> poetry install --sync
+The `--sync` option is deprecated and slated for removal, use the `poetry sync` command instead.
+Installing dependencies from lock file
+
+pyproject.toml changed significantly since poetry.lock was last generated. Run `poetry lock` to fix the lock file.
+```
+
+Operator proceeded to run `poetry run pytest -q` anyway (dependencies not actually installed).
+Literal result: 12 collection errors, all `ModuleNotFoundError` (`fastapi` in 6 files, `reportlab`
+in 3 files transitively via `PdfRendererAdapter`, plus 3 more of the same pattern), total coverage
+`29.80%` (artifact of collection failures, not a real measurement), `FAIL Required test coverage
+of 75.0% not reached`, `Interrupted: 12 errors during collection`.
+
+**Root cause (Dependency Collapse Policy applied — this is the root, not the 12 individual
+`ModuleNotFoundError`s):** `poetry.lock`'s content-hash no longer matches the current
+`pyproject.toml`. Install refuses to proceed rather than installing from a lock file it can't
+trust. This is not a new mystery — it is exactly the risk `RELEASE_BLOCKING_ASSESSMENT.md` §0.2
+already flagged (`reportlab`/`pypdf` added to `pyproject.toml` across this session's blocker work,
+never regenerated against a real `poetry lock` run, because no session before this one had a real
+Poetry binary to run it with) — now confirmed with live evidence instead of a suspected finding.
+
+**Blocker card:**
+
+| Field | Value |
+|---|---|
+| Type | Deployment (dependency-lock artifact staleness) — not code, not architecture, not ENV |
+| Status | Blocked — root cause identified, single-command fix |
+| Owner | Operator (execute); Claude (verify evidence afterward) |
+| Required Evidence | Literal output of `poetry lock`, then `poetry sync` (non-deprecated form of `install --sync`), then `poetry run pytest -q`, all on the same machine |
+| Verification Command | `poetry lock; poetry sync; poetry run pytest -q` |
+| Expected Result | `poetry lock` completes and rewrites `poetry.lock`; `poetry sync` completes with no "changed significantly" warning; pytest collection reports **0 errors** (pass/fail counts may be anything — that's a separate, later question, not this gate's concern) |
+| Exit Condition | All three literal outputs above, pasted verbatim |
+
+Not classified as an ENV node: ENV-01 (Python/Poetry presence) is satisfied and unaffected — this
+is a repository dependency-lock consistency issue, independent of the environment itself. Not a
+Shared Core change (no `collect/`, `preprocess/`, `embeddings/`, `topics/`, `sentiment/`,
+`reporting/master_table.py` touched) — no Research/Product impact assessment required.
+
+**Engineering Gate re-evaluated:** closed for Claude. `poetry lock` requires the real resolver
+talking to real package indexes on the machine where ENV-02 was verified reachable — reproducing
+that by hand-editing `poetry.lock`'s hash in this sandbox would produce a lock file not backed by
+a real dependency resolution, which is worse than the current honest failure. Operator action only.
+
+**Deployment Validation Checklist update:** the existing unchecked item "`poetry.lock` fully
+current for every declared dependency (`reportlab`/`pypdf` included, per
+`RELEASE_BLOCKING_ASSESSMENT.md` §0.2)" is now evidenced as the actual, current blocking reason,
+not a speculative risk.
+
+---
+
 ## Dependency Graph
 
 Changed edges only (full graph unchanged from last report, now with ENV nodes named explicitly
@@ -124,14 +180,15 @@ claim automatically — verify, node by node, before touching the blocker graph.
 unresolved ENV nodes (ENV-01 through ENV-04); none is independently actionable inside this
 sandbox.
 **Highest actionable blocker:** none inside this sandbox.
-**Highest delegated blocker:** none remaining among ENV-01/ENV-02 — both resolved (operator
-environment). ENV-03 and ENV-04 remain, parallel, no ordering dependency between them or with the
-now-actionable `#1`/`#3`/`#5`.
-**Next expected actor:** Operator — first to actually execute `#1` (`poetry install --sync` + full
-test suite) on the machine that produced the ENV-01/ENV-02 evidence, since this is a verification
-task, not a code-writing task (Engineering Gate Q1 answered "no" for all three of `#1`/`#3`/`#5`).
-**Next required evidence:** literal `poetry install --sync` output, then the full test suite's
-literal pass/fail line (no `--ignore`, no `PYTHONPATH` workaround), from the same machine.
+**Highest delegated blocker:** the newly-found `poetry.lock` staleness (see New Finding above) —
+higher priority than ENV-03/ENV-04 right now, since it is the single thing standing between
+"ENV-01/ENV-02 resolved" and "`#1`/`#3`/`#5` actually attemptable." ENV-03/ENV-04 remain parallel,
+unaffected, no ordering dependency with this or each other.
+**Next expected actor:** Operator — run `poetry lock` then `poetry sync` then `poetry run pytest -q`
+on the same machine, in that order (Engineering Gate Q1 answered "no" — this is not a code
+problem).
+**Next required evidence:** literal output of all three commands above, especially confirmation
+that collection errors drop from 12 to 0.
 **Automatic resume:** No. Engineering resumes only after evidence verification per the Restart /
 Reactivation Checklist.
 
@@ -188,6 +245,22 @@ dependency: all of the above, plus explicit Sprint 5 Task Authorization (not yet
   engineering — Gate Q1 ("is this actually a code problem?") is "no" for all three; they are
   operator-executed verification/installation tasks. No code written this delta.
 - No architecture, governance, or ADR change.
+
+## Decision Log Delta — 2026-08-03 (third entry, same day)
+
+- **New finding recorded:** `poetry.lock` stale relative to `pyproject.toml` — confirmed via
+  literal `poetry install --sync` failure and the resulting 12-collection-error `pytest -q` run,
+  both on the ENV-01/ENV-02-resolved operator machine. This converts `RELEASE_BLOCKING_ASSESSMENT.md`
+  §0.2's speculative "poetry.lock precision" risk into an evidenced, currently-blocking fact.
+- **`#1` status:** attempted, not resolved — blocked by the finding above, not by ENV-01 (which
+  remains resolved; Python/Poetry themselves are fine).
+- **`#3`/`#5` status:** unchanged (still not attempted — both need a completed `poetry install`
+  first, which this finding currently prevents).
+- Engineering Gate re-evaluated: remains closed for Claude-side engineering. The fix
+  (`poetry lock`) is a single operator-run command requiring the real resolver against real
+  package indexes; not reproducible correctly by hand-editing the lock file in this sandbox.
+- No architecture, governance, or ADR change. No Shared Core module touched — no impact
+  assessment required for this entry.
 
 ## Executive Decision
 
