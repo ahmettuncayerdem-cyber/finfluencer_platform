@@ -396,6 +396,63 @@ dependency: all of the above, plus explicit Sprint 5 Task Authorization (not yet
   requires a fresh, dated re-run, now the single outstanding item.
 - No architecture, governance, or ADR change. Not a Shared Core change.
 
+## Synthesis — Current Blocker Status and Path to T-029 (2026-08-03)
+
+Prompted by an operator evidence *summary* (not literal command output) restating items already
+on record. Per Evidence Policy, this synthesis is based only on the literal evidence already
+committed through `8248359` — no new evidence was supplied this delta, so no blocker status
+changed. Answering the three specific questions raised:
+
+**Current status, one line each:**
+
+| Item | Status |
+|---|---|
+| ENV-01, ENV-02, ENV-03 | Resolved (operator environment) |
+| ENV-04 | Missing (no git remote) |
+| `#1` (real installation) | Resolved, pending final confirmation re-run |
+| `#2` | Operationally mitigated |
+| `#3` (real YouTube collection, live) | Open — not attempted |
+| `#4` | Resolved |
+| `#5` (real ML stack) | **Partially resolved** — import-level proven, execution-level open |
+| `#6` (real analysis dispatch) | Open — not started, still downstream of `#5`'s execution-level gap |
+| `#7` | Open — downstream of ENV-04 |
+| `signal.SIGKILL` fix | Engineered, committed (`10d0ad5`), **verification re-run still outstanding** |
+
+**Can `#5` be marked Resolved from the import success alone? No.** Import success proves the
+libraries are present and loadable — it does not prove `TopicsAnalysisAdapter`/
+`EmbeddingsEngineAdapter` produce a correct result when given a real, non-fake `provider=`
+end to end. "Real ML stack execution" was always the latter, per
+`RELEASE_READINESS_ROADMAP.md`'s own framing and `IMPLEMENTATION_ROADMAP.md` §6's MVP definition
+("run topic and sentiment analysis," not "have the libraries installed"). Marking it fully
+Resolved on import evidence alone would be exactly the kind of rounding-up the Evidence Policy
+exists to prevent.
+
+**Is the `SIGKILL` fix the only remaining engineering before T-029 literal sign-off? No** — three
+more items exist, two of them real, not-yet-started engineering:
+
+1. **`#6` — wiring `StartAnalysisRun` to a real (non-demo) analysis engine.** Currently only
+   reachable via ADR-0004's demo stand-in. Not started. Was explicitly deferred this session
+   (Dependency Collapse: "would only solve a symptom while #5 remained unresolved") — with `#5`
+   now import-level resolved, this is closer to actionable but still blocked on item 2 below.
+2. **`preprocess/` wrapping — "Adaptation required," not "Wrapper required."** Flagged in
+   `infrastructure/analysis/CONTEXT_PACK.md` since Release Blocker #4's work: real collected
+   `comments.parquet` has no `text_clean` column until this exists. Without it, `run_topics()`/
+   `run_embeddings()` silently return an **empty** result rather than erroring (`CONTEXT_PACK.md`'s
+   own documented Gotcha) — so `#6`'s dispatch alone would not yet produce a real, non-empty
+   analysis result. Larger and riskier than a wrapper (`IMPLEMENTATION_ROADMAP.md` §3, Roadmap
+   Risk R-6, Turkish-vocabulary vertical coupling in `financial_tr.py`) — not authorized this
+   session.
+3. **`#3`'s live-network half** — an operator action (real `YT_API_KEY`, real quota spend), not
+   engineering, but still a precondition for "collect real YouTube data" per §6's MVP definition.
+
+Only after all of the above, plus the outstanding `pytest -q` re-run confirming 0 failures, does
+`BACKLOG.md`'s T-029 entry become eligible for its own literal, live, human-performed run.
+`ENV-04`/`#7` (real CI) are **not** on this specific path — `T-029`'s own Role/Verification lines
+require human sign-off, not CI; they matter for broader Release Candidate readiness, not T-029
+itself.
+
+No engineering performed this delta (synthesis only). No architecture, governance, or ADR change.
+
 ## Executive Decision
 
 **Waiting for Operator**
