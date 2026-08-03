@@ -12,7 +12,7 @@ real state changes.
 
 | Node | Capability | Status | Evidence | Owner | Next action |
 |---|---|---|---|---|---|
-| **ENV-01** | Python ≥3.11 + Poetry installation | **Missing** | `python3 --version` → `3.10.12`. `pyproject.toml:73` requires `>=3.11,<3.14`. | Operator | Provision a real Python ≥3.11 environment; run `poetry install --sync` |
+| **ENV-01** | Python ≥3.11 + Poetry installation | **Resolved (operator environment)** | Operator-supplied, 2026-08-03, same Windows machine as the ENV-02 evidence: `python --version` → `Python 3.12.10` (satisfies `pyproject.toml:73`'s `>=3.11,<3.14`); `poetry --version` → `Poetry (version 2.4.1)`. **Scope caveat, same as ENV-02:** this session's own sandbox remains `Python 3.10.12`, no `poetry` binary — unaffected by this resolution; ENV-01 is resolved for the operator's machine, the intended execution target. **Cross-reference:** this is the exact `Windows, Python 3.12.10` environment `KNOWN_ISSUES.md` diagnosed the `torch>=2.9.0` bug in — the `torch = ">=2.8.0,<2.9.0"` pin in `pyproject.toml`/`poetry.lock` is directly applicable here and must hold through the next step. | Operator (evidence provided) | None outstanding for this node. Next: actually run `poetry install --sync` on this machine and record the real result (see Recomputed Descendants). |
 | **ENV-02** | External network availability (Google APIs, PyTorch CPU index, package mirrors) | **Resolved (operator environment)** | Operator-supplied, 2026-08-03, via `curl.exe` on the operator's own Windows machine: `https://www.googleapis.com/` → `404` (a real Google API-gateway response, not a proxy-intercepted page); `https://download.pytorch.org/whl/cpu/torch/` → `200`. **Scope caveat:** this Claude session's own sandboxed shell was re-checked the same session and still returns `curl: (56) Received HTTP code 403 from proxy after CONNECT` on both URLs — the sandbox itself remains network-restricted; ENV-02 is resolved for the operator's machine, which is the environment where any real network-dependent install or test must actually run. | Operator (evidence provided) | None outstanding for this node. Real execution of downstream work (#3, and #5's CPU-wheel path) must happen on the operator's machine, guided step-by-step, since the sandbox cannot execute it regardless of this node's status. |
 | **ENV-03** | Disk / compute / runtime resources | **Insufficient for the ML stack** | `df -h /` → `3.9G` free. `pip install torch==2.8.0` (default PyPI, CUDA-bundled) → 888MB wheel + `nvidia-cublas-cu12`/`nvidia-cudnn-cu12`/etc., each 100s of MB, exceeds available disk. | Operator | Either resolve ENV-02 (CPU-only wheel avoids the CUDA bundle) or provision ≥8GB free disk |
 | **ENV-04** | GitHub remote + GitHub Actions execution | **Missing** | `git remote -v` → empty. `.github/workflows/ci.yml` has never executed on real GitHub infrastructure (confirmed since T-005, re-confirmed no change this session). | Operator | Configure a GitHub remote; push; observe a real Actions run |
@@ -25,29 +25,30 @@ Changed edges only (full graph unchanged from last report, now with ENV nodes na
 instead of one opaque `RB-ENV`):
 
 ```
-ENV-01 → #1
+ENV-01 → #1                         [ENV-01 resolved 2026-08-03, operator env]
 ENV-02 → #3                         [ENV-02 resolved 2026-08-03, operator env]
 ENV-02 or ENV-03 → #5 → #6          [satisfied via ENV-02, operator env]
 ENV-04 → #7
 ```
 
-Resolved: `#4`, `ENV-02` (operator environment scope). Operationally mitigated: `#2` (torch pin —
-must still be respected whenever a real install happens, especially on Windows per
-`KNOWN_ISSUES.md`). No cycles. No blocker remains unclassified.
+Resolved: `#4`, `ENV-01` (operator environment scope), `ENV-02` (operator environment scope).
+Operationally mitigated: `#2` (torch pin — directly applicable to this exact operator environment
+per `KNOWN_ISSUES.md`'s own diagnostic environment, Windows + Python 3.12.10). No cycles. No
+blocker remains unclassified.
 
-**Recomputed descendants of ENV-02 (2026-08-03, affected nodes only):**
+**Recomputed descendants of ENV-01 (2026-08-03, affected nodes only):**
 
-- `#3` (real YouTube collection) — network precondition now satisfied on the operator's machine.
-  Still not actionable as *engineering*: this is a live verification task (T-015/T-017-style),
-  not new code, and it must be executed on the operator's machine (the only environment with the
-  confirmed network path), not in this sandbox.
-- `#5` (real ML stack execution) — its `ENV-02 or ENV-03` precondition is now satisfied via the
-  CPU-only PyTorch wheel path (`download.pytorch.org/whl/cpu` → `200` on the operator's machine),
-  independent of ENV-03's disk question. Still gated on ENV-01 (Python ≥3.11 + Poetry) before
-  `poetry install --sync` can even be attempted on that machine.
-- `#6` — unchanged, still fully downstream of `#5`; not reassessed independently (Dependency
-  Collapse Policy).
-- `#1`, `#7` — untouched; no edge from ENV-02.
+- `#1` (real installation verification) — its only upstream, ENV-01, is now resolved on the
+  operator's machine. Per the Engineering Gate's first question ("is this actually a code
+  problem?") — no: this is an operator-run verification task, not new code. Actionable now, to be
+  executed by the operator, not engineered by Claude.
+- `#3`, `#5` — both already had their own ENV-02-side precondition satisfied (previous delta).
+  With ENV-01 now also resolved on the same machine, the practical prerequisite for actually
+  running either (`poetry install --sync` must succeed first, in the same environment) is now
+  fully in place. Still operator-executed, not Claude-engineered — same reasoning as `#1`.
+- `#6` — unchanged, still fully downstream of an unresolved (not yet executed) `#5`; not
+  reassessed independently (Dependency Collapse Policy).
+- `#7` — untouched; no edge from ENV-01.
 
 ---
 
@@ -123,13 +124,14 @@ claim automatically — verify, node by node, before touching the blocker graph.
 unresolved ENV nodes (ENV-01 through ENV-04); none is independently actionable inside this
 sandbox.
 **Highest actionable blocker:** none inside this sandbox.
-**Highest delegated blocker:** ENV-01 (Python ≥3.11 + Poetry, on the operator's own machine) — the
-next node whose resolution has the widest immediate effect, since ENV-02 is now resolved there and
-`poetry install --sync` plus real test execution both wait on it. ENV-03/ENV-04 remain parallel,
-no ordering dependency.
-**Next expected actor:** Operator.
-**Next required evidence:** `python --version` (or `py -3.11 --version`) and `poetry --version`
-output from the same Windows machine that produced the ENV-02 evidence above.
+**Highest delegated blocker:** none remaining among ENV-01/ENV-02 — both resolved (operator
+environment). ENV-03 and ENV-04 remain, parallel, no ordering dependency between them or with the
+now-actionable `#1`/`#3`/`#5`.
+**Next expected actor:** Operator — first to actually execute `#1` (`poetry install --sync` + full
+test suite) on the machine that produced the ENV-01/ENV-02 evidence, since this is a verification
+task, not a code-writing task (Engineering Gate Q1 answered "no" for all three of `#1`/`#3`/`#5`).
+**Next required evidence:** literal `poetry install --sync` output, then the full test suite's
+literal pass/fail line (no `--ignore`, no `PYTHONPATH` workaround), from the same machine.
 **Automatic resume:** No. Engineering resumes only after evidence verification per the Restart /
 Reactivation Checklist.
 
@@ -173,6 +175,19 @@ dependency: all of the above, plus explicit Sprint 5 Task Authorization (not yet
   target for real network-dependent work.
 - No architecture, governance, or ADR change. No engineering performed — this is evidence
   recording only.
+
+## Decision Log Delta — 2026-08-03 (second entry, same day)
+
+- **ENV-01**: `Missing` → `Resolved (operator environment)`. Evidence: operator-supplied
+  `python --version` (`3.12.10`) and `poetry --version` (`2.4.1`) from the same Windows machine as
+  the ENV-02 evidence above, validated against this node's existing Verification Command /
+  Expected Result.
+- Recomputed only ENV-01's descendants (`#1`, and the shared prerequisite this creates for `#3`/
+  `#5`) — `#6`, `#7` untouched (Dependency Collapse Policy).
+- Engineering Gate re-evaluated for `#1`/`#3`/`#5`: still does not open for Claude-side
+  engineering — Gate Q1 ("is this actually a code problem?") is "no" for all three; they are
+  operator-executed verification/installation tasks. No code written this delta.
+- No architecture, governance, or ADR change.
 
 ## Executive Decision
 
