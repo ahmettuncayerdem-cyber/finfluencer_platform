@@ -19,7 +19,7 @@ real state changes.
 
 ---
 
-## New Finding — `poetry.lock` Stale Relative to `pyproject.toml` (2026-08-03)
+## New Finding — `poetry.lock` Stale Relative to `pyproject.toml` (2026-08-03) — **Resolved**
 
 Operator attempted `#1` (real installation verification) on the ENV-01/ENV-02-resolved machine.
 Literal result: **`poetry install --sync` did not complete.**
@@ -70,8 +70,105 @@ a real dependency resolution, which is worse than the current honest failure. Op
 
 **Deployment Validation Checklist update:** the existing unchecked item "`poetry.lock` fully
 current for every declared dependency (`reportlab`/`pypdf` included, per
-`RELEASE_BLOCKING_ASSESSMENT.md` §0.2)" is now evidenced as the actual, current blocking reason,
-not a speculative risk.
+`RELEASE_BLOCKING_ASSESSMENT.md` §0.2)" is now **checked** — resolved with literal evidence below.
+
+### Resolution (2026-08-03, same day)
+
+Operator ran `poetry lock; poetry sync; poetry run pytest -q` on the same machine. Literal result:
+
+- `poetry lock` → resolved and wrote a fresh lock file.
+- `poetry sync` → `Package operations: 5 installs, 0 updates, 0 removals` — `fastapi (0.109.2)`,
+  `pypdf (5.9.0)`, `reportlab (4.5.1)`, `starlette (0.36.3)`, `uvicorn (0.27.1)`. Only 5 packages
+  needed installing against an **already-populated** `.venv` (coverage output paths reference
+  `.venv/Lib/site-packages/httpx`, `.venv/Lib/site-packages/statsmodels`, etc.) — this venv was
+  evidently built by an earlier, unlogged `poetry install` on this machine, before this session.
+- `poetry run pytest -q` → full suite executed for the first time this entire engagement against
+  real, non-fixtured dependencies. Result: **2 failed**, both `AttributeError: module 'signal' has
+  no attribute 'SIGKILL'` (`tests/integration/test_t013_interruption_and_resume.py:136`,
+  `tests/integration/test_t017_live_interruption.py:173`) — a genuine Windows portability bug
+  (`signal.SIGKILL` is POSIX-only), not an environment or install problem. **Coverage: 91.48%,
+  gate (75%) passed** (`Required test coverage of 75.0% reached`).
+
+**Engineering Gate re-evaluated for the `SIGKILL` failures specifically:** all four conditions
+satisfied — (1) genuinely a code problem (test harness references a POSIX-only stdlib attribute);
+(2) every upstream dependency resolved (ENV-01, ENV-02, this finding, all resolved); (3) evidence
+fully supports it (exact file, line, traceback already in hand); (4) no cheaper evidence-first
+alternative exists (the cause is already fully known). **Gate opened — engineering performed,
+see Engineering Report below.**
+
+---
+
+## Engineering Report — Windows `signal.SIGKILL` Portability Fix (2026-08-03)
+
+**1. Executive Summary.** `signal.SIGKILL` does not exist on Windows (POSIX-only). Two integration
+tests and one manual script called `proc.send_signal(signal.SIGKILL)` and asserted
+`proc.returncode == -signal.SIGKILL`, both of which raise `AttributeError` on Windows. Replaced
+with `proc.kill()` (Python's portable uncatchable-hard-kill primitive: sends `SIGKILL` on POSIX,
+calls `TerminateProcess` on Windows) and a platform-aware returncode assertion. No test logic,
+fixture, or product code changed — only the kill mechanism and its proof.
+
+**2. Technical Changes.**
+- `tests/integration/test_t013_interruption_and_resume.py`: `proc.send_signal(signal.SIGKILL)` →
+  `proc.kill()`; `assert proc.returncode == -signal.SIGKILL` → platform-branched (`!= 0` on
+  `win32`, unchanged on POSIX).
+- `tests/integration/test_t017_live_interruption.py`: identical change, same pattern.
+- `scripts/t017_live_interruption_manual.py` (not a pytest test, human-operator-run per its own
+  docstring; fixed for consistency since it is exactly the script this machine would run for the
+  live-network half of T-017): `send_signal(signal.SIGKILL)` → `proc.kill()`; the diagnostic print
+  statement made platform-aware instead of unconditionally formatting `-signal.SIGKILL`.
+
+**3. Tests Executed.** Could not re-run the real suite in this sandbox (no real dependencies
+installed here, by design — see every prior ENV-02/ENV-03 evidence this session). Verified
+instead: `python3 -m py_compile` on all three touched files (syntax valid); `grep` confirmed zero
+remaining `send_signal(signal.SIGKILL)` occurrences repo-wide; `ruff check --config pyproject.toml`
+against the repo's own configuration on all three files — 19 pre-existing findings unchanged (none
+on touched lines), 0 new findings introduced (one `E501` line-length violation I introduced in the
+manual script was caught and fixed before this count).
+
+**4. Validation Results.** Static validation only, as above. **Real validation requires the
+operator re-running `poetry run pytest -q` on the same machine** — this is the actual verification
+step, requested below.
+
+**5. Current Task Risks.** Low. The fix touches test-only code (2 files) plus one manual,
+never-automated script; no product/business logic, no Shared Core module. Residual risk: cannot
+be 100% certain `proc.kill()`'s Windows `TerminateProcess` path yields a non-zero returncode in
+every case without the operator's real re-run — the assertion was written defensively (`!= 0`
+rather than a specific hardcoded value) precisely because CPython's exact Windows exit-code
+convention for `Popen.kill()` isn't part of its documented, stable API.
+
+**6. Known Deferred Work.** None introduced by this fix. Pre-existing, unrelated ruff findings
+(`S603`, `PLW1510`, `UP022`, `PLC0415`, one stale `noqa`) in the same three files are untouched —
+out of this fix's scope, not a regression.
+
+**7. Next Critical Path Task.** Operator re-runs `poetry run pytest -q` on the same machine to
+confirm 0 failures now (see below). In parallel/afterward: verify `#5`'s real status — the 5
+packages `poetry sync` installed did **not** include `torch`/`sentence-transformers`/`bertopic`,
+implying they were already present in this machine's pre-existing `.venv`; cheapest next evidence
+is a direct import check, not a fresh install attempt.
+
+**8. Recommended Commit Message.** `fix(tests): use portable Popen.kill() instead of POSIX-only signal.SIGKILL`
+
+**9. Performance Impact.** None — kill mechanism only, not exercised on any hot path.
+
+**10. Compute Characteristics.** None — no algorithmic change.
+
+**11. Reuse Summary.** 100% reuse of stdlib `subprocess.Popen.kill()`, already the documented
+portable equivalent; zero new abstractions, zero new dependencies.
+
+**12. Architecture Reuse Metrics.** N/A — test-only change, no architecture layer touched.
+
+**13. Implementation Economics.** `git diff --numstat`: `test_t013_interruption_and_resume.py`
++13/-4, `test_t017_live_interruption.py` +9/-3, `scripts/t017_live_interruption_manual.py` +4/-3.
+26 lines added, 10 removed, across 3 files.
+
+**14. Shared Core Impact Assessment.** Not a Shared Core change (no `collect/`, `preprocess/`,
+`embeddings/`, `topics/`, `sentiment/`, `reporting/master_table.py` touched) — Research and
+Product impact both: **no impact** (test-only, platform-portability fix).
+
+**15. Release Readiness Impact.** Positive, pending operator re-verification: removes the only
+known cause of test failure on the ENV-01/ENV-02-resolved machine. Does not by itself resolve
+`#3` (real live-network YouTube collection — this test suite deliberately stubs that boundary by
+design, unchanged) or `#5` (real ML stack — status still unconfirmed, see Next Critical Path Task).
 
 ---
 
@@ -94,16 +191,20 @@ blocker remains unclassified.
 
 **Recomputed descendants of ENV-01 (2026-08-03, affected nodes only):**
 
-- `#1` (real installation verification) — its only upstream, ENV-01, is now resolved on the
-  operator's machine. Per the Engineering Gate's first question ("is this actually a code
-  problem?") — no: this is an operator-run verification task, not new code. Actionable now, to be
-  executed by the operator, not engineered by Claude.
-- `#3`, `#5` — both already had their own ENV-02-side precondition satisfied (previous delta).
-  With ENV-01 now also resolved on the same machine, the practical prerequisite for actually
-  running either (`poetry install --sync` must succeed first, in the same environment) is now
-  fully in place. Still operator-executed, not Claude-engineered — same reasoning as `#1`.
-- `#6` — unchanged, still fully downstream of an unresolved (not yet executed) `#5`; not
-  reassessed independently (Dependency Collapse Policy).
+- `#1` (real installation verification) — **Resolved.** Attempted, hit the `poetry.lock` staleness
+  finding, which surfaced a genuine code bug (`signal.SIGKILL` on Windows) once install succeeded;
+  bug fixed (see Engineering Report above); full suite passed its 75% coverage gate at 91.48% with
+  only the now-fixed `SIGKILL` failures. Pending operator re-run to close the loop, but the
+  verification task itself — "run the full suite, record the pass/fail count, whatever it is" —
+  is complete.
+- `#3`, `#5` — **still not attempted.** `#3`'s automated test deliberately stubs the network
+  transport boundary by design (unchanged by any evidence this session); the real live-network
+  half needs `scripts/t017_live_interruption_manual.py` run with a real `YT_API_KEY`, spending
+  real quota — an operator decision, not yet requested. `#5`'s status is genuinely unknown: the
+  `poetry sync` that just ran did not install `torch`/`sentence-transformers`/`bertopic`,
+  implying (not confirming) they were already present in this machine's pre-existing `.venv`.
+- `#6` — unchanged, still fully downstream of an unresolved `#5`; not reassessed independently
+  (Dependency Collapse Policy).
 - `#7` — untouched; no edge from ENV-01.
 
 ---
@@ -180,15 +281,15 @@ claim automatically — verify, node by node, before touching the blocker graph.
 unresolved ENV nodes (ENV-01 through ENV-04); none is independently actionable inside this
 sandbox.
 **Highest actionable blocker:** none inside this sandbox.
-**Highest delegated blocker:** the newly-found `poetry.lock` staleness (see New Finding above) —
-higher priority than ENV-03/ENV-04 right now, since it is the single thing standing between
-"ENV-01/ENV-02 resolved" and "`#1`/`#3`/`#5` actually attemptable." ENV-03/ENV-04 remain parallel,
-unaffected, no ordering dependency with this or each other.
-**Next expected actor:** Operator — run `poetry lock` then `poetry sync` then `poetry run pytest -q`
-on the same machine, in that order (Engineering Gate Q1 answered "no" — this is not a code
-problem).
-**Next required evidence:** literal output of all three commands above, especially confirmation
-that collection errors drop from 12 to 0.
+**Highest delegated blocker:** `#5`'s real status (ML stack — torch/sentence-transformers/bertopic
+import check) and `#3`'s real live-network half (operator decision: spend real YouTube API quota)
+are now the two highest-value remaining items. ENV-03/ENV-04 remain parallel, unaffected.
+**Next expected actor:** Operator — first, a cheap read-only check for `#5` (see below); `#3`'s
+manual live script is a separate, higher-stakes step requiring an explicit go-ahead (spends real
+quota), not requested yet.
+**Next required evidence:** literal output of `poetry run python -c "import torch,
+sentence_transformers, bertopic; print(torch.__version__)"` on the same machine, plus, separately,
+`poetry run pytest -q` re-run to confirm the `SIGKILL` fix closes both failures.
 **Automatic resume:** No. Engineering resumes only after evidence verification per the Restart /
 Reactivation Checklist.
 
@@ -261,6 +362,20 @@ dependency: all of the above, plus explicit Sprint 5 Task Authorization (not yet
   package indexes; not reproducible correctly by hand-editing the lock file in this sandbox.
 - No architecture, governance, or ADR change. No Shared Core module touched — no impact
   assessment required for this entry.
+
+## Decision Log Delta — 2026-08-03 (fourth entry, same day)
+
+- **`poetry.lock` finding**: `Blocked` → `Resolved`. Evidence: operator-run `poetry lock; poetry
+  sync; poetry run pytest -q`, literal output validated (5 installs, 91.48% coverage, gate passed).
+- **New sub-finding surfaced and fixed same session:** `signal.SIGKILL` AttributeError on Windows,
+  in 2 test files + 1 manual script. Engineering Gate opened for this specific, narrow fix (all 4
+  conditions met); engineering performed — see Engineering Report above. This is the session's
+  first engineering performed since entering Program Director mode.
+- **`#1`**: `Attempted, blocked` → `Resolved`.
+- **`#3`, `#5`**: unchanged status (not attempted), but next evidence steps are now concrete and
+  cheap rather than open-ended.
+- No architecture, governance, or ADR change. Not a Shared Core change — impact assessment
+  recorded in the Engineering Report as "no impact" (test-only).
 
 ## Executive Decision
 

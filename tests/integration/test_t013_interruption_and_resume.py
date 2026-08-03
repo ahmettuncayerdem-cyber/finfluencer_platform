@@ -133,12 +133,21 @@ def test_a_real_sigkill_mid_run_leaves_correct_partial_state_then_resumes_cleanl
     try:
         _wait_for_record_count(channels_records, 2, _POLL_TIMEOUT_SECONDS)
     finally:
-        proc.send_signal(signal.SIGKILL)
+        # `Popen.kill()` is the portable form of an uncatchable hard kill: on POSIX it
+        # sends SIGKILL; on Windows it calls TerminateProcess. Neither can be caught or
+        # handled by the target process, so this preserves the "genuine, uncontrolled
+        # interruption" guarantee this test's docstring describes, on both platforms.
+        proc.kill()
         proc.wait(timeout=5)
 
-    # Proof this was a genuine, uncontrolled kill, not a graceful exit: on POSIX, a
-    # process terminated by signal N reports returncode -N.
-    assert proc.returncode == -signal.SIGKILL
+    # Proof this was a genuine, uncontrolled kill, not a graceful exit. On POSIX, a process
+    # terminated by a signal reports a negative returncode (-N for signal N). Windows has no
+    # signal-based termination -- TerminateProcess never produces the worker's own (0-valued)
+    # success exit code, so "non-zero" is the portable equivalent proof there.
+    if sys.platform == "win32":
+        assert proc.returncode != 0
+    else:
+        assert proc.returncode == -signal.SIGKILL
 
     # --- Assert correct, uncorrupted partial state on disk ------------------------------
     checkpoint_root = base_root / run_id / "checkpoints"

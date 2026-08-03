@@ -121,11 +121,12 @@ def main() -> int:
         _wait_for_record_count(channels_records, 1, _POLL_TIMEOUT_SECONDS)
         time.sleep(0.2)
     finally:
-        print("Sending SIGKILL...")
-        proc.send_signal(signal.SIGKILL)
+        print("Sending an uncatchable hard kill (SIGKILL on POSIX, TerminateProcess on Windows)...")
+        proc.kill()
         proc.wait(timeout=10)
 
-    print(f"Worker returncode: {proc.returncode} (expect {-signal.SIGKILL})")
+    expected = "non-zero (Windows)" if sys.platform == "win32" else -signal.SIGKILL
+    print(f"Worker returncode: {proc.returncode} (expect {expected})")
     stderr_tail = proc.stderr.read().decode("utf-8", errors="replace") if proc.stderr else ""
     if stderr_tail.strip():
         print(f"Worker stderr (last output before kill):\n{stderr_tail}")

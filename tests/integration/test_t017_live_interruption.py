@@ -170,11 +170,17 @@ def test_a_real_sigkill_mid_run_against_the_live_wired_adapter_resumes_cleanly(
         # sleep a moment to actually be entered before killing.
         time.sleep(0.05)
     finally:
-        proc.send_signal(signal.SIGKILL)
+        # Portable uncatchable hard kill -- see test_t013_interruption_and_resume.py's
+        # identical comment for why `Popen.kill()` preserves this guarantee cross-platform.
+        proc.kill()
         proc.wait(timeout=5)
 
-    # Proof this was a genuine, uncontrolled kill, not a graceful exit.
-    assert proc.returncode == -signal.SIGKILL
+    # Proof this was a genuine, uncontrolled kill, not a graceful exit (see T-013's identical
+    # reasoning for the POSIX/Windows split).
+    if sys.platform == "win32":
+        assert proc.returncode != 0
+    else:
+        assert proc.returncode == -signal.SIGKILL
 
     # --- Assert correct, uncorrupted partial state on disk --------------------------------
     checkpoint_root = base_root / run_id / "checkpoints"
