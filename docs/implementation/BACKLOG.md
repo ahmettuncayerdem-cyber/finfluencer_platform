@@ -14,6 +14,34 @@
 
 ---
 
+## Engineering Workstreams
+
+*A descriptive lens over the EPICs above, not a new backlog namespace, task-id scheme, or
+governance artifact — every task keeps its existing `T-0XX` id and epic unchanged. Added
+2026-08-03 per operator instruction, following the Project Evolution Strategy Review. One
+repository, one roadmap, one governance model, exactly as decided.*
+
+- **Shared Core** — the framework-agnostic analysis pipeline this platform wraps: `collect/`,
+  `providers/platform/`, `preprocess/`, `embeddings/`, `topics/`, `sentiment/`,
+  `reporting/master_table.py`, and `reporting/`'s statistical/manuscript modules.
+- **Research Applications** — the academic research/publication track already present in this
+  repository (statistical validation, gold-standard annotation, manuscript preparation, peer
+  review response) — currently un-ticketed beyond T-033's own triage item. Consumes Shared Core
+  directly, never the six-layer architecture.
+- **Product Applications** — the six-layer SaaS platform, EPIC-00 onward, everything on the
+  critical path above. Consumes Shared Core only through Infrastructure adapters, per the
+  established wrapper pattern (T-010, T-019, T-022).
+
+**Policy:** any modification to a Shared Core module listed above must include, in the same
+change, both a **Research impact assessment** (does this alter any output a manuscript,
+statistical validation, or annotation process currently depends on?) and a **Product impact
+assessment** (does this alter any output an Infrastructure adapter, Domain entity, or API
+response currently depends on?) — even when the task's own stated purpose touches only one
+workstream. "No impact" is an acceptable finding of the assessment; skipping the assessment is
+not.
+
+---
+
 ## Backlog Snapshot — 2026-08-03
 
 *Temporary Practice — regenerate this section on demand, don't hand-maintain it between real state changes.*
