@@ -576,6 +576,36 @@ the 3 `capture_logs()` failures are gone, and (b) whether `test_t013`'s `Timeout
 
 No architecture, governance, or ADR change.
 
+## New Finding — Full-Suite Re-run: 0 Failures (2026-08-03)
+
+Operator ran a fresh full-suite `poetry run pytest -q` (post `903e064`). Literal result: test
+progress reaches `[100%]` with **no `FAILURES` section**, no `=== short test summary info ===`
+section, no `FAILED` lines anywhere in the output. Coverage: `6192` stmts, `437` miss, `1194`
+branch, `140` brpart, **`91.48%`**, `Required test coverage of 75.0% reached`.
+
+**Interpretation, literal, not rounded up:** the absence of a `FAILURES`/short-summary section in
+this pytest configuration's own established output format (present in every prior failing run
+this session) is the direct evidence of zero failures — this is what a fully green run looks like
+in this exact setup, not an assumption.
+
+**Both open items from the previous delta are now resolved:**
+- The 3 `structlog.testing.capture_logs()` failures — gone, consistent with the
+  `cache_logger_on_first_use=False` fix (`903e064`).
+- `test_t013`'s `TimeoutError` — did **not** recur. One data point is not proof it can never
+  recur (transient/load-related issues by nature aren't provable absent), but it is now
+  consistent with "transient, not a deterministic regression from the `SIGKILL` fix" rather than
+  a systemic problem requiring a timeout-value change. No further action taken — nothing to fix
+  without a reproducing case.
+
+**This is the first fully green run of the real (non-fixtured) test suite this entire
+engagement**, on the ENV-01/ENV-02/ENV-03-resolved operator machine.
+
+**`#1` (real installation verification): remains Resolved, now with the strongest evidence yet** —
+not just "installed and ran," but "installed, ran, and passed cleanly."
+
+No engineering performed this delta (verification only). No architecture, governance, or ADR
+change.
+
 ## Executive Decision
 
 **Waiting for Operator**
