@@ -14,7 +14,7 @@ real state changes.
 |---|---|---|---|---|---|
 | **ENV-01** | Python ≥3.11 + Poetry installation | **Resolved (operator environment)** | Operator-supplied, 2026-08-03, same Windows machine as the ENV-02 evidence: `python --version` → `Python 3.12.10` (satisfies `pyproject.toml:73`'s `>=3.11,<3.14`); `poetry --version` → `Poetry (version 2.4.1)`. **Scope caveat, same as ENV-02:** this session's own sandbox remains `Python 3.10.12`, no `poetry` binary — unaffected by this resolution; ENV-01 is resolved for the operator's machine, the intended execution target. **Cross-reference:** this is the exact `Windows, Python 3.12.10` environment `KNOWN_ISSUES.md` diagnosed the `torch>=2.9.0` bug in — the `torch = ">=2.8.0,<2.9.0"` pin in `pyproject.toml`/`poetry.lock` is directly applicable here and must hold through the next step. | Operator (evidence provided) | None outstanding for this node. Next: actually run `poetry install --sync` on this machine and record the real result (see Recomputed Descendants). |
 | **ENV-02** | External network availability (Google APIs, PyTorch CPU index, package mirrors) | **Resolved (operator environment)** | Operator-supplied, 2026-08-03, via `curl.exe` on the operator's own Windows machine: `https://www.googleapis.com/` → `404` (a real Google API-gateway response, not a proxy-intercepted page); `https://download.pytorch.org/whl/cpu/torch/` → `200`. **Scope caveat:** this Claude session's own sandboxed shell was re-checked the same session and still returns `curl: (56) Received HTTP code 403 from proxy after CONNECT` on both URLs — the sandbox itself remains network-restricted; ENV-02 is resolved for the operator's machine, which is the environment where any real network-dependent install or test must actually run. | Operator (evidence provided) | None outstanding for this node. Real execution of downstream work (#3, and #5's CPU-wheel path) must happen on the operator's machine, guided step-by-step, since the sandbox cannot execute it regardless of this node's status. |
-| **ENV-03** | Disk / compute / runtime resources | **Insufficient for the ML stack** | `df -h /` → `3.9G` free. `pip install torch==2.8.0` (default PyPI, CUDA-bundled) → 888MB wheel + `nvidia-cublas-cu12`/`nvidia-cudnn-cu12`/etc., each 100s of MB, exceeds available disk. | Operator | Either resolve ENV-02 (CPU-only wheel avoids the CUDA bundle) or provision ≥8GB free disk |
+| **ENV-03** | Disk / compute / runtime resources | **Resolved (operator environment, indirect evidence)** | Operator-supplied, 2026-08-03, same machine: `poetry run python -c "import torch, sentence_transformers, bertopic; print(torch.__version__)"` → `2.8.0+cpu`, no error. `+cpu` suffix confirms the CPU-only wheel (ENV-02's path), matches the `>=2.8.0,<2.9.0` pin exactly. Indirect: proves the stack is installed and importable, not that today's disk headroom is ≥8GB — the packages already exist in this `.venv`, so this node's original concern (can the CUDA-bundle-sized install fit) is moot via the CPU-wheel path, consistent with the original Verification Command's own "or" clause. **Sandbox scope caveat unchanged:** this session's own sandbox remains `3.9G` free / no torch installed, irrelevant to the operator's machine. | Operator (evidence provided) | None outstanding for this node. |
 | **ENV-04** | GitHub remote + GitHub Actions execution | **Missing** | `git remote -v` → empty. `.github/workflows/ci.yml` has never executed on real GitHub infrastructure (confirmed since T-005, re-confirmed no change this session). | Operator | Configure a GitHub remote; push; observe a real Actions run |
 
 ---
@@ -197,12 +197,17 @@ blocker remains unclassified.
   only the now-fixed `SIGKILL` failures. Pending operator re-run to close the loop, but the
   verification task itself — "run the full suite, record the pass/fail count, whatever it is" —
   is complete.
-- `#3`, `#5` — **still not attempted.** `#3`'s automated test deliberately stubs the network
-  transport boundary by design (unchanged by any evidence this session); the real live-network
-  half needs `scripts/t017_live_interruption_manual.py` run with a real `YT_API_KEY`, spending
-  real quota — an operator decision, not yet requested. `#5`'s status is genuinely unknown: the
-  `poetry sync` that just ran did not install `torch`/`sentence-transformers`/`bertopic`,
-  implying (not confirming) they were already present in this machine's pre-existing `.venv`.
+- `#3` — **still not attempted.** Automated test deliberately stubs the network transport
+  boundary by design (unchanged by any evidence this session); the real live-network half needs
+  `scripts/t017_live_interruption_manual.py` run with a real `YT_API_KEY`, spending real quota —
+  an operator decision, not yet requested.
+- `#5` — **import-level resolved, execution-level still open.** `poetry run python -c "import
+  torch, sentence_transformers, bertopic; print(torch.__version__)"` → `2.8.0+cpu`, no error
+  (2026-08-03, same machine). Confirms the stack is installed and importable — genuinely new,
+  positive evidence, not an assumption. Does **not** yet confirm a real encode/fit actually
+  produces correct output end to end (`TopicsAnalysisAdapter`/`EmbeddingsEngineAdapter` with a
+  real, non-fake `provider=`) — that remains the next, more specific evidence question, distinct
+  from "are the libraries present."
 - `#6` — unchanged, still fully downstream of an unresolved `#5`; not reassessed independently
   (Dependency Collapse Policy).
 - `#7` — untouched; no edge from ENV-01.
@@ -281,15 +286,16 @@ claim automatically — verify, node by node, before touching the blocker graph.
 unresolved ENV nodes (ENV-01 through ENV-04); none is independently actionable inside this
 sandbox.
 **Highest actionable blocker:** none inside this sandbox.
-**Highest delegated blocker:** `#5`'s real status (ML stack — torch/sentence-transformers/bertopic
-import check) and `#3`'s real live-network half (operator decision: spend real YouTube API quota)
-are now the two highest-value remaining items. ENV-03/ENV-04 remain parallel, unaffected.
-**Next expected actor:** Operator — first, a cheap read-only check for `#5` (see below); `#3`'s
-manual live script is a separate, higher-stakes step requiring an explicit go-ahead (spends real
-quota), not requested yet.
-**Next required evidence:** literal output of `poetry run python -c "import torch,
-sentence_transformers, bertopic; print(torch.__version__)"` on the same machine, plus, separately,
-`poetry run pytest -q` re-run to confirm the `SIGKILL` fix closes both failures.
+**Highest delegated blocker:** confirming the `SIGKILL` fix actually closes both failures — this
+is the one item still outstanding from this session's own engineering, not a new blocker.
+`#3`'s real live-network half (operator decision: spend real YouTube API quota) is the next
+highest-value item after that, not yet requested. ENV-04 remains parallel, unaffected.
+**Next expected actor:** Operator — re-run `poetry run pytest -q` on the same machine, after the
+`10d0ad5`/`b26a438` commits.
+**Next required evidence:** literal `poetry run pytest -q` output confirming 0 failures (the last
+supplied output still shows the pre-fix 2 `SIGKILL` failures — that run predates the fix and is
+not evidence against it; a fresh run is needed to close this loop, per Evidence Policy: stale
+terminal scrollback is not re-verification).
 **Automatic resume:** No. Engineering resumes only after evidence verification per the Restart /
 Reactivation Checklist.
 
@@ -376,6 +382,19 @@ dependency: all of the above, plus explicit Sprint 5 Task Authorization (not yet
   cheap rather than open-ended.
 - No architecture, governance, or ADR change. Not a Shared Core change — impact assessment
   recorded in the Engineering Report as "no impact" (test-only).
+
+## Decision Log Delta — 2026-08-03 (fifth entry, same day)
+
+- **ENV-03**: `Insufficient for the ML stack` → `Resolved (operator environment, indirect
+  evidence)`. Evidence: `torch`/`sentence_transformers`/`bertopic` all import cleanly, torch
+  reports `2.8.0+cpu` — matches the pin exactly, confirms the CPU-wheel path was used.
+- **`#5`**: unresolved → import-level resolved, execution-level still open (precise, not rounded
+  up to "Resolved").
+- **Evidence hygiene note:** the pytest output accompanying this delta's screenshot was stale
+  terminal scrollback from the pre-fix run (same 2 `SIGKILL` failures already recorded in the
+  previous delta), not a fresh re-run. Not treated as evidence against the fix — Evidence Policy
+  requires a fresh, dated re-run, now the single outstanding item.
+- No architecture, governance, or ADR change. Not a Shared Core change.
 
 ## Executive Decision
 
