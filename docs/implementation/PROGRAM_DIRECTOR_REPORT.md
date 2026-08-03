@@ -606,6 +606,131 @@ not just "installed and ran," but "installed, ran, and passed cleanly."
 No engineering performed this delta (verification only). No architecture, governance, or ADR
 change.
 
+## Release Blocker #6 — Implementation Complete (2026-08-03)
+
+**Executive Summary.** RB-6 Implementation Authorization's four-item scope is complete and
+committed (`0d91cb1`, on top of `5147acd`'s Readiness Review). `StartAnalysisRun` can now execute
+real topic-modeling and sentiment pipelines, reachable by setting `analysis_type_id` to one of two
+fixed, well-known values `bootstrap.py` mints. One item in the accepted plan changed during
+implementation (Task 3's dispatch shape — see Engineering Risks / Deferred Work) after evidence
+found while writing the wiring code contradicted the Readiness Review's section 5.3; the operator
+reviewed the contradiction and authorized a revised approach (Option 1) before work resumed. No
+other part of the accepted plan changed.
+
+**Technical Changes.**
+- New: `infrastructure/analysis/preprocess_adapter.py` (`PreprocessEngineAdapter`), `.../
+  real_topics_engine.py` (`RealTopicsAnalysisEngine`), `.../real_sentiment_engine.py`
+  (`RealSentimentAnalysisEngine`) — Task 1/2/4 from the authorization. `TopicsAnalysisAdapter`'s
+  static `embeddings_index_path` gap (found during the Readiness Review) is closed by
+  `RealTopicsAnalysisEngine` constructing a fresh `TopicsAnalysisAdapter` per call rather than
+  modifying that adapter — zero lines changed in `topics_adapter.py`.
+- Modified: `infrastructure/analysis/__init__.py` (exports only).
+- Modified: `bootstrap.py` — mints `TOPIC_MODELING_ANALYSIS_TYPE_ID`/`SENTIMENT_ANALYSIS_TYPE_ID`
+  (fixed constants, exported), constructs the two real engines and two additional
+  `StartAnalysisRunOrchestrator` instances, stores them in
+  `app.state.analysis_run_orchestrators_by_type`. `app.state.start_analysis_run_orchestrator`
+  (the demo-wired one) is untouched, byte-for-byte.
+- Modified: `api/deps.py` — one new getter, `get_analysis_run_orchestrators_by_type`, same
+  one-line `Request`-only shape as every other function in the file.
+- Modified: `api/routes/analysis.py` — the route now takes one additional `Depends(...)`
+  parameter and does a two-line `dict.get(analysis_type_id, default)` lookup before
+  `orchestrator.execute(command)`. No request/response schema change (both new/changed
+  dependencies are `Request`-only or dict-typed with `Depends`, never a second body parameter —
+  confirmed this doesn't trigger FastAPI's multi-body-param request-shape change).
+
+**Validation Results.**
+- Full unit regression: 1118 passed, 1 skipped (1096 baseline + 22 new: 18 adapter/engine tests +
+  4 bootstrap wiring tests). Zero regressions, run in full (all directories, not sampled).
+  Excludes the 2 pre-existing sandbox-only `click`/`CliRunner` version-mismatch failures
+  (`test_cli.py`, `test_reporting/test_main.py`) already documented as environment artifacts, not
+  covered by this delta.
+- IG-001 layer-dependency check (`scripts/check_layer_dependencies.py` + its 3 test files, 22
+  tests): clean, no forbidden cross-layer imports.
+- ruff on all touched files: clean relative to the established baseline — the 4 remaining
+  findings (2×`B008` on `Depends(...)` defaults, 1×`A002` on a pre-existing unrelated line, 1×
+  `PLC0415` local import in a test function) were confirmed, by running ruff against the
+  unmodified `HEAD` version of the same lines, to be pre-existing/already-accepted patterns, not
+  introduced by this change.
+- Differential/reuse proof: `test_bootstrap.py`'s two HTTP-level tests swap fake orchestrators
+  into the two well-known dict slots and prove (a) an exact-match id invokes only its own fake,
+  never the other or the default, and (b) an unrecognized id (matching T-028's own existing random
+  UUIDs) invokes neither fake and still completes via the real, unchanged demo engine — the
+  permissive-fallback contract, proven at the HTTP boundary, not just asserted.
+- Walking Skeleton: `test_routes_analysis.py`'s 4 pre-existing tests pass completely unmodified
+  (0 lines changed in that file) — direct evidence the Walking Skeleton's existing behavior is
+  unaffected.
+- Not run: an end-to-end HTTP call using a well-known id through the *real* `RealTopicsAnalysisEngine`
+  (i.e. actually invoking BERTopic/sentence-transformers over HTTP). Deliberately out of scope for
+  this validation pass — see Deferred Work.
+
+**Architecture Reuse Metrics.** Zero changes to: Domain (entities, `IAnalysisEngine` Protocol,
+`AnalysisType`), `StartAnalysisRunOrchestrator`'s class, `TopicsAnalysisAdapter`/
+`SentimentAnalysisAdapter`/`EmbeddingsEngineAdapter` (all three verbatim), `preprocess.pipeline.*`,
+the route's request/response schema, and 4/4 pre-existing T-028 tests. New code: 3 Infrastructure
+files + 1 dict + 1 getter + ~10 lines in one route function. No new abstraction layer, no
+repository, no catalog.
+
+**Implementation Economics.** Net new: ~430 lines across 3 new adapter/engine files (heavily
+docstring-commented per this session's evidentiary discipline; functional code is a fraction of
+that), ~40 lines of wiring across 3 modified files, ~230 lines of new tests (`test_bootstrap.py`)
+plus the 3 adapter/engine test files already written before this delta's wiring step. No lines
+removed from any existing, already-tested file.
+
+**Shared Core Impact Assessment.** `PreprocessEngineAdapter` touches the Shared Core surface
+(`preprocess/`) by wrapping it, per `RB6_ANALYSIS_DISPATCH_READINESS_REVIEW.md` section 5.1,
+sketched there and confirmed unchanged here: *Research impact* — none; Research's own pipeline
+already calls `run_preprocessing()` directly, unaffected by this adapter's existence. *Product
+impact* — `financial_tr.py`'s always-on Turkish-financial normalization remains unconditional
+(Roadmap Risk R-6, flagged not resolved); correct for this MVP's single-vertical scope, would need
+to become conditional for a future multi-vertical/multi-language surface. No other Shared Core
+module (`collect/`, `providers/platform/`, `embeddings/`, `topics/`, `sentiment/`,
+`reporting/master_table.py`, statistical/manuscript modules) was touched.
+
+**Engineering Risks.**
+- The dispatch mechanism is two hardcoded dict entries, not a real catalog — adding a third
+  `AnalysisType` requires another bootstrap edit, same limitation ARB-01 already flagged and
+  deferred (TD-03/TD-04), not newly introduced or worsened here.
+- `analysis_type_id` remains completely unvalidated at this route (by explicit, operator-directed
+  design) — a client that transposes `TOPIC_MODELING_ANALYSIS_TYPE_ID`/`SENTIMENT_ANALYSIS_TYPE_ID`
+  gets silently misrouted to the wrong real engine rather than an error, same permissiveness that
+  already existed for every other value before this change (not a new risk class, but now reachable
+  with two specific, exploitable-by-typo values instead of being uniformly inert).
+- The real engines have not yet been proven to complete successfully against actual
+  fixture-collected data over HTTP (BERTopic/sentence-transformers need enough data/neighbors to
+  fit; the 4-comment fixture set `test_routes_collection.py` uses may be too small for UMAP/HDBSCAN
+  to behave sensibly) — untested territory, flagged, not resolved.
+
+**Deferred Work.**
+- An end-to-end HTTP test that actually drives `RealTopicsAnalysisEngine`/
+  `RealSentimentAnalysisEngine` through real inference (not fakes) against real fixture data, to
+  confirm the composed pipeline produces a non-empty, sane `topics.parquet`/`sentiment.parquet` in
+  practice, not just that the composition sequences calls correctly.
+- TD-03/TD-04 (ARB-01's flagged general `AnalysisType`-dispatch/catalog mechanism) — still
+  deferred, unchanged by this delta.
+- Roadmap Risk R-6 (Turkish-financial normalization always-on) — still flagged, not resolved.
+- `_DemoTopicAssignmentEngine`'s long-term fate (retire vs. keep as permanent fallback/dev path)
+  was not decided this delta — kept exactly as-is, now formally the permanent default for any
+  `analysis_type_id` that isn't one of the two well-known ids, per the operator's explicit Option 1
+  instruction, but no decision was made about whether that should change in the future.
+
+**Next Critical Path.** Operator re-verification: run the real full-suite `poetry run pytest -q`
+on the real Windows/Poetry environment (ENV-01/02/03-resolved) to confirm this sandbox's 1118/1
+result reproduces there, same discipline as every prior engineering delta this session. Then
+either (a) accept RB-6 as fully closed pending that confirmation, or (b) direct the deferred
+end-to-end-real-inference validation before closing it.
+
+**Claude Continuation Prompt.** "Continue from repository state at commit `0d91cb1` (parent
+`5147acd`). Release Blocker #6 (real analysis dispatch behind `StartAnalysisRun`) is implemented,
+committed, and validated in-sandbox (1118 passed/1 skipped, IG-001 clean, ruff clean against
+baseline). Awaiting operator's real-environment full-suite re-run to confirm parity before RB-6 is
+considered fully closed. If new evidence arrives, validate it literally per the Program Director
+Evidence Policy before taking any further engineering action; if none arrives, this remains a
+correctly-idle 'No Change Session' until the operator provides it."
+
+No architecture, governance, or ADR change. Frozen architecture list unmodified.
+
 ## Executive Decision
 
-**Waiting for Operator**
+**Waiting for Operator** — Release Blocker #6 implementation complete and committed
+(`0d91cb1`); next required evidence is a real-environment full-suite `poetry run pytest -q`
+re-run to confirm this sandbox's validation reproduces on the operator's machine.
