@@ -569,7 +569,7 @@ it's systematic rather than a one-off blip, and not enough to justify guessing a
 Deferred, pending a fresh full-suite re-run (see below) — if it recurs, that's the trigger to
 investigate further; if not, no action needed.
 
-**Commit:** `[pending]`
+**Commit:** `903e064`
 
 **Next required evidence:** a fresh **full-suite** `poetry run pytest -q` re-run, to confirm (a)
 the 3 `capture_logs()` failures are gone, and (b) whether `test_t013`'s `TimeoutError` recurs.
