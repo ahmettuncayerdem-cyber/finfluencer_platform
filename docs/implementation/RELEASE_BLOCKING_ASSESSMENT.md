@@ -68,19 +68,39 @@ alone, surfaced five items the Roadmap did not account for:
 None of these six are new architectural problems — all fit inside categories the Roadmap already
 named (Infrastructure/Release Engineering). They change *severity and precision*, not scope.
 
+## 0.5 Meta Blocker Decomposition — RB-ENV
+
+Four of the seven Release blockers (#1, #3, #5, #7) are not independent — each is downstream of
+this session's own sandbox lacking some environment capability. Tracked as four separate,
+independently-verifiable nodes, never merged into one opaque blocker:
+
+| Node | Capability | Status | Evidence |
+|---|---|---|---|
+| **ENV-01** | Python ≥3.11 + Poetry installation | Missing | `python3 --version` → `3.10.12` (needs `>=3.11,<3.14`, `pyproject.toml:73`) |
+| **ENV-02** | External network availability (Google APIs, PyTorch CPU index, package mirrors) | Partially missing | `googleapis.com` → `403 Forbidden` from proxy; `download.pytorch.org/whl/cpu` → `403 Forbidden`, same proxy; plain `pypi.org` → reachable (confirmed) |
+| **ENV-03** | Disk / compute / runtime resources | Insufficient for the ML stack specifically | `df -h /` → `3.9G` free; `torch==2.8.0` from default PyPI resolves an 888MB wheel + full CUDA 12.8 dependency chain, exceeding available disk |
+| **ENV-04** | GitHub remote + GitHub Actions execution | Missing | `git remote -v` → empty |
+
+Downstream mapping: `#1 → ENV-01`. `#3 → ENV-02`. `#5 → ENV-02 **or** ENV-03` (either the CPU
+wheel index becomes reachable, avoiding the CUDA bundle, or disk grows enough for the CUDA-bundled
+default-PyPI package — not a strict AND). `#7 → ENV-04`. `#6 → #5` (downstream of a downstream —
+`StartAnalysisRun` cannot reach a real engine until real `bertopic`/`transformers` are installed
+and runnable, which is `#5`'s own scope). Acyclic, verified: `ENV-0x → {#1,#3,#5,#7} → #6`, no
+back-edges.
+
 ## 1. Full inventory and classification
 
 Every open item, classified into exactly one category. "Evidence" cites where it is recorded.
 
 | # | Item | Category | Evidence |
 |---|---|---|---|
-| 1 | Python ≥3.11/Poetry install path never proven with a full `pytest` run (narrowed by finding 0.1: real dependency-level work *has* happened, full-suite proof has not) | **Release blocker** | `BACKLOG.md` T-002/T-003; `KNOWN_ISSUES.md` |
+| 1 | Python ≥3.11/Poetry install path never proven with a full `pytest` run (narrowed by finding 0.1: real dependency-level work *has* happened, full-suite proof has not) | **Release blocker** — downstream of **ENV-01** | `BACKLOG.md` T-002/T-003; `KNOWN_ISSUES.md` |
 | 2 | `torch >=2.9.0` Windows DLL failure, upstream bug, currently pinned | **Release blocker** | `KNOWN_ISSUES.md`; `pyproject.toml:130-140`; directly gates any real environment choice for RR-01/04/05 |
-| 3 | Live YouTube network collection unverified (T-015/T-017 live halves) | **Release blocker** | `BACKLOG.md` T-015/T-017; `GOVERNANCE_REGISTER.md` TD-01/RISK-01 |
+| 3 | Live YouTube network collection unverified (T-015/T-017 live halves) | **Release blocker** — downstream of **ENV-02** | `BACKLOG.md` T-015/T-017; `GOVERNANCE_REGISTER.md` TD-01/RISK-01 |
 | 4 | ~~Embeddings pipeline unwrapped~~ — **Resolved 2026-08-03.** `EmbeddingsEngineAdapter` wraps `run_embeddings`/`SentenceTransformerProvider` unmodified; fixture-tested, IG-001 clean. See `RB4_EMBEDDINGS_ADAPTER_MIGRATION_RISK_CHECKLIST.md`. **New dependency surfaced while resolving this item, not yet resolved:** `comments.parquet` has no `text_clean` until `preprocess/` is wrapped ("Adaptation required," Roadmap R-6) — blocks a real end-to-end run regardless of this fix. | **Release blocker** (partially resolved; preprocess gap remains) | `infrastructure/analysis/CONTEXT_PACK.md`; `RB4_EMBEDDINGS_ADAPTER_MIGRATION_RISK_CHECKLIST.md` |
-| 5 | `bertopic`/`transformers`/`torch` stack never installed+run together anywhere — **empirically re-tested 2026-08-03, confirmed infeasible in this sandbox specifically, not merely assumed.** `pip3 install torch==2.8.0` (the pinned version, `KNOWN_ISSUES.md`) from the default PyPI index resolves to an 888MB wheel plus a full CUDA 12.8 dependency chain (`nvidia-cublas-cu12`, `nvidia-cudnn-cu12`, `nvidia-cusparselt-cu12`, etc., each 100s of MB) — total footprint exceeds this sandbox's 3.9GB free disk. The CPU-only wheel index (`download.pytorch.org/whl/cpu`, which would avoid the CUDA bundle) returns `403 Forbidden` from the same outbound proxy that blocks `googleapis.com` (Release Blocker #3) — a second domain behind the identical network restriction, not a new/different constraint. `transformers`/`sentence-transformers` both depend on `torch` as their backend (`pyproject.toml`'s own comment), so this blocks the sentiment side identically to the topics side — no partial/lighter path exists. No disk corruption or repo impact resulted (`--no-cache-dir`, verified via `git status`/`df -h` before and after). | **Release blocker** — confirmed deployment-only (STOP condition) | Both analysis `CONTEXT_PACK.md` files, "Known technical debt"; empirical pip test this pass |
-| 6 | `StartAnalysisRun`'s only reachable engine is the ADR-0004 demo stand-in (TD-03/TD-04 dispatch gap) | **Release blocker** | `docs/adr/0004-...md`; `GOVERNANCE_REGISTER.md` ARB-01 |
-| 7 | CI (`ci.yml`) has never executed on real GitHub Actions infrastructure | **Release blocker** | `BACKLOG.md` T-005 outcome |
+| 5 | `bertopic`/`transformers`/`torch` stack never installed+run together anywhere — **empirically re-tested 2026-08-03, confirmed infeasible in this sandbox specifically, not merely assumed.** `pip3 install torch==2.8.0` (the pinned version, `KNOWN_ISSUES.md`) from the default PyPI index resolves to an 888MB wheel plus a full CUDA 12.8 dependency chain (`nvidia-cublas-cu12`, `nvidia-cudnn-cu12`, `nvidia-cusparselt-cu12`, etc., each 100s of MB) — total footprint exceeds this sandbox's 3.9GB free disk. The CPU-only wheel index (`download.pytorch.org/whl/cpu`, which would avoid the CUDA bundle) returns `403 Forbidden` from the same outbound proxy that blocks `googleapis.com` (Release Blocker #3) — a second domain behind the identical network restriction, not a new/different constraint. `transformers`/`sentence-transformers` both depend on `torch` as their backend (`pyproject.toml`'s own comment), so this blocks the sentiment side identically to the topics side — no partial/lighter path exists. No disk corruption or repo impact resulted (`--no-cache-dir`, verified via `git status`/`df -h` before and after). | **Release blocker** — downstream of **ENV-02 or ENV-03** (confirmed deployment-only, STOP condition) | Both analysis `CONTEXT_PACK.md` files, "Known technical debt"; empirical pip test this pass |
+| 6 | `StartAnalysisRun`'s only reachable engine is the ADR-0004 demo stand-in (TD-03/TD-04 dispatch gap) | **Release blocker** — downstream of **#5** (not implemented: building dispatch today would still leave only the demo engine reachable — solving the symptom, not the cause) | `docs/adr/0004-...md`; `GOVERNANCE_REGISTER.md` ARB-01 |
+| 7 | CI (`ci.yml`) has never executed on real GitHub Actions infrastructure | **Release blocker** — downstream of **ENV-04** | `BACKLOG.md` T-005 outcome |
 | 8 | In-memory Persistence Layer; Sprint 5's `T-030` (real registration/login) is not meaningful without it, even though `BACKLOG.md`'s graph doesn't say so | **Sprint 5 prerequisite** | `BACKLOG.md` T-009; `RELEASE_READINESS_ROADMAP.md` §0 |
 | 9 | Tenant isolation untested (no adversarial test yet) | **Sprint 5 prerequisite** | `IMPLEMENTATION_ROADMAP.md` R-5; = `T-032` exactly |
 | 10 | Authentication/authorization beyond one dev-user | **Sprint 5 prerequisite** | `BACKLOG.md` EPIC-07 (`T-030`/`T-031`) |
