@@ -26,6 +26,12 @@
 
 **EPIC-06 (Reporting / MVP Core Loop, Sprint 4): 5/5 tasks closed — SPRINT 4 COMPLETE.** `SPRINT_4_KICKOFF.md` approved 2026-08-01. T-024 — `InterpretationRecord`/`Report`/`Export` Domain entities, `Report` structurally never references `AnalysisRun` (ast-verified). T-025 — `GenerateReportOrchestrator`, real integration proof of a topic-AnalysisRun and a sentiment-AnalysisRun citing into one `Report`; `reporting/master_table.py` investigated and correctly deferred to T-026. T-026 — `ExportReportTableOrchestrator`, `reporting/master_table.py` finally reused unmodified as BACKLOG always intended; confirmed CSV/table export is not a Domain `Export` entity (§10.1 restricts `Export` to PDF/Word). T-027 — `PdfRendererAdapter` (`reportlab`, new dependency, ADR-0003) + `FinalizeReportOrchestrator`/`GenerateExportOrchestrator`; first real use of the `Export` entity (T-024, dormant until now); genuinely new implementation, no existing tested code to wrap, confirmed by re-inspection during its own Readiness Review. T-028 — first real Presentation/API exposure of Reporting (and, via `StartAnalysisRun`, Analysis) — five new routes over six completely-unmodified orchestrators (one new, `GetReportOrchestrator`, T-020/025/026/027 otherwise untouched); `StartAnalysisRun`'s first-ever API exposure required a deliberately-scoped demo `IAnalysisEngine` (ADR-0004), not the real BERTopic adapter. **Sprint 4 formally CLOSED 2026-08-03.** EPIC-07/EPIC-08 (except the housekeeping item below): not started.
 
+**T-029 (MVP acceptance verification), 2026-08-03: implementation-side verification complete
+(full audit, 31/31 E2E checks, all quality gates clean, no new gaps found — see
+`T-029_MVP_VERIFICATION_REPORT.md`). Not closed — its own Role line requires human sign-off on a
+live, real-YouTube-data run, blocked pending a real-network environment and resolution of
+ARB-01's TD-03/TD-04 (real analysis engines behind `StartAnalysisRun`). See its own entry.**
+
 **Sprint progress (Sprint 0 = EPIC-00 through EPIC-02): 10 of 14 Sprint-0 tasks closed — SPRINT 0 COMPLETE.** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope), T-011 (Sprint 0 scope), T-012 (Sprint 0 scope), T-013 (Sprint 0 scope), T-014 (closed, human-verified) — every task this sprint's own scope required is closed. T-002/T-003 remain open but, per the Dependency Ruling below, never gated this closure. Formal closure documents: `SPRINT_0_RETROSPECTIVE.md`, `SPRINT_0_COMPLETION_REPORT.md`, `SPRINT_1_READINESS_ASSESSMENT.md` (2026-08-01). Sprint 0 remains CLOSED and immutable.
 
 **Sprint 1 (EPIC-03, Live Collection) is COMPLETE — T-015, T-016, T-017 all closed 2026-08-01.** T-015 — real `YouTubePlatformProvider` wired into the unmodified T-010 adapter. T-016 — bounded retry with backoff for `RateLimitError`/`NetworkError` inside `youtube.py::_execute`. T-017 — real-`SIGKILL` interruption/resume proven against the live-wired chain (network transport stubbed), plus retry-survives-the-real-chain proof. The live-network, real-timing halves of T-015's and T-017's own Verification lines remain environment-blocked in this sandbox (one constraint, confirmed twice, not two separate findings) — both have a ready-to-run manual script for an operator with real egress. Per `IMPLEMENTATION_ROADMAP.md`'s own parallelization note (Critical Path section above), EPIC-03's completion means it can now rejoin the critical path at T-029 as planned; EPIC-04 (Topic Analysis, Sprint 2) is the next unstarted epic.
@@ -623,6 +629,31 @@ authored before/during implementation.
 **Acceptance criteria:** a researcher creates a Project, collects real YouTube data, runs topic *and* sentiment analysis, views and exports a Report citing raw snapshots — no AI call anywhere in the path.
 **Verification:** the end-to-end run itself, performed once, live.
 **Architecture:** §1.2, §3.2. **Roadmap:** §6 (MVP Definition). **Playbook:** Part G, Feature Lifecycle.
+
+**Status, 2026-08-03: IMPLEMENTATION-SIDE VERIFICATION COMPLETE; LIVE-DATA / HUMAN SIGN-OFF HALF
+OUTSTANDING** (same pattern as T-015/T-017's own closure). Full audit, end-to-end verification
+(31/31 checks against the real running app, fixture/demo data), and quality-gate re-run performed
+— see `T-029_MVP_VERIFICATION_REPORT.md` for the complete Evidence Matrix, MVP Gap Analysis, and
+Release Readiness assessment. Zero production/test code changed by this task (`git diff --stat`
+confirms). Full regression: 1087 passed, 1 skipped (unchanged from T-028's own count — no
+regression). IG-001, architecture conformance, API conformance, presentation smoke tests: all
+clean. **No previously-undocumented gap was found.**
+
+**What remains before this task's own literal acceptance criterion is met, per its own Role line
+("Human sign-off") and Verification line ("the end-to-end run itself, performed once, live"):**
+(1) real YouTube network collection, blocked in every sandboxed environment tried so far
+(T-015/T-017, re-confirmed rather than re-discovered); (2) `StartAnalysisRun`'s only API-reachable
+engine is the T-028 demo stand-in (ADR-0004), not the real `TopicsAnalysisAdapter`/
+`SentimentAnalysisAdapter` — resolving ARB-01's TD-03/TD-04 is required first; (3) the human,
+live, once-performed run itself. **Newly surfaced by this audit, not previously stated this
+plainly:** every green test result this entire engagement has ever produced, including this
+session's, ran under `PYTHONPATH=src` against this sandbox's Python 3.10.12 — never through the
+`pyproject.toml`-declared `>=3.11` install path (T-002/T-003, still open) — so "another developer
+can clone and run this" remains unproven, not merely unverified.
+
+**Not marked CLOSED.** This task's own Role line requires the operator's direct participation;
+declaring it done from this session alone would overstate what a fixture/demo-backed
+verification pass can prove.
 
 ---
 
