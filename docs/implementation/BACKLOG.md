@@ -14,7 +14,7 @@
 
 ---
 
-## Backlog Snapshot — 2026-08-01
+## Backlog Snapshot — 2026-08-03
 
 *Temporary Practice — regenerate this section on demand, don't hand-maintain it between real state changes.*
 
@@ -24,7 +24,7 @@
 
 **EPIC-05 (Sentiment Analysis, Sprint 3): 2/2 tasks CLOSED — SPRINT 3 COMPLETE.** T-022 — `SentimentAnalysisAdapter` wraps `sentiment.pipeline.run_sentiment` unmodified, second `IAnalysisEngine` implementation. T-023 — verified zero orchestrator diff since T-020 (`git diff`-confirmed, plus structural dispatch/signature/no-branching proof). ARB-01 — plugin architecture formally reviewed 2026-08-01, 8/10 dimensions Accept, 2/10 Generalize (non-blocking, tracked as TD-03/TD-04); no architectural changes recommended. **Sprint 3 formally CLOSED 2026-08-01.**
 
-**EPIC-06 (Reporting / MVP Core Loop, Sprint 4): 3/5 tasks closed.** `SPRINT_4_KICKOFF.md` approved 2026-08-01. T-024 — `InterpretationRecord`/`Report`/`Export` Domain entities, `Report` structurally never references `AnalysisRun` (ast-verified). T-025 — `GenerateReportOrchestrator`, real integration proof of a topic-AnalysisRun and a sentiment-AnalysisRun citing into one `Report`; `reporting/master_table.py` investigated and correctly deferred to T-026. T-026 — `ExportReportTableOrchestrator`, `reporting/master_table.py` finally reused unmodified as BACKLOG always intended; confirmed CSV/table export is not a Domain `Export` entity (§10.1 restricts `Export` to PDF/Word). T-027 (PDF rendering, this backlog's own flagged highest-uncertainty task) is next-in-sequence, awaiting its own Task Authorization. EPIC-07/EPIC-08 (except the housekeeping item below): not started.
+**EPIC-06 (Reporting / MVP Core Loop, Sprint 4): 4/5 tasks closed.** `SPRINT_4_KICKOFF.md` approved 2026-08-01. T-024 — `InterpretationRecord`/`Report`/`Export` Domain entities, `Report` structurally never references `AnalysisRun` (ast-verified). T-025 — `GenerateReportOrchestrator`, real integration proof of a topic-AnalysisRun and a sentiment-AnalysisRun citing into one `Report`; `reporting/master_table.py` investigated and correctly deferred to T-026. T-026 — `ExportReportTableOrchestrator`, `reporting/master_table.py` finally reused unmodified as BACKLOG always intended; confirmed CSV/table export is not a Domain `Export` entity (§10.1 restricts `Export` to PDF/Word). T-027 — `PdfRendererAdapter` (`reportlab`, new dependency, ADR-0003) + `FinalizeReportOrchestrator`/`GenerateExportOrchestrator`; first real use of the `Export` entity (T-024, dormant until now); genuinely new implementation, no existing tested code to wrap, confirmed by re-inspection during its own Readiness Review. T-028 (in-app Report viewing screen) is next-in-sequence, awaiting its own Task Authorization. EPIC-07/EPIC-08 (except the housekeeping item below): not started.
 
 **Sprint progress (Sprint 0 = EPIC-00 through EPIC-02): 10 of 14 Sprint-0 tasks closed — SPRINT 0 COMPLETE.** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope), T-011 (Sprint 0 scope), T-012 (Sprint 0 scope), T-013 (Sprint 0 scope), T-014 (closed, human-verified) — every task this sprint's own scope required is closed. T-002/T-003 remain open but, per the Dependency Ruling below, never gated this closure. Formal closure documents: `SPRINT_0_RETROSPECTIVE.md`, `SPRINT_0_COMPLETION_REPORT.md`, `SPRINT_1_READINESS_ASSESSMENT.md` (2026-08-01). Sprint 0 remains CLOSED and immutable.
 
@@ -521,7 +521,7 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 
 **Outcome:** **Key architectural finding, resolved before implementation (T-026 Readiness Review):** §10.1 line 604 restricts the `Export` Domain entity to "PDF or Word" — CSV/table generation is the separate "manuscript-ready table objects... available for in-app viewing before export" capability §8.4 names. No `Export`/`ExportFormat` extension was made; this task constructs no Domain entity at all (read-only with respect to the Domain Model). New Domain port `ITableExporter` (`domain/reporting_engine.py`, alongside T-025's `IResultSnapshotReader`). New Infrastructure adapter `infrastructure/reporting/table_export_adapter.py` (`MasterTableExportAdapter`) wraps `reporting.master_table.build_master_table`/`save_master_table` **unmodified — the correct reuse target `ResultSnapshotAdapter` (T-025) deliberately was not**, confirming that earlier finding. `domain/repositories.py` extended: `IInterpretationRecordRepository.get_by_id()` added — exactly the gap T-025's own docstring anticipated this task would need. `application/orchestrators/export_report_table.py` (`ExportReportTableOrchestrator`): resolves a `Report`'s `citation_ids` → each `InterpretationRecord.analysis_run_id` → each `AnalysisRun.collection_run_id`, enforces that every citation pins to the **same** `CollectionRun` (BKG-001: enforced in Application, not Infrastructure — a joined table has no meaning across two `CollectionRun`s' comments), then exports via `ITableExporter`. 11 new tests (6 adapter: differential test proving byte-identical output to calling `build_master_table()` directly, missing-source error, empty-id rejection, IG-001 ast checks, no-legacy-mutation check; 5 orchestrator: happy path exporting a topics+sentiment `Report`, cross-`CollectionRun` rejection, no-citations rejection, unknown-report rejection, no-pandas/no-Infrastructure ast check). Full regression: 807 passed, 1 skipped (was 796; +11). Walking Skeleton subset: 242 passed (was 231; +11). IG-001: clean. `T-026_MIGRATION_RISK_CHECKLIST.md` and `CONTEXT_PACK_REPORTING.md` (extended, covers both T-025's and T-026's adapters) authored before implementation.
 
-### T-027 — Implement PDF report rendering
+### T-027 — Implement PDF report rendering — **CLOSED 2026-08-03**
 **Purpose:** the genuinely new half of §4's [New for rendering] tag — no existing tested code to lean on.
 **Depends on:** T-025 — parallel-eligible with T-026.
 **Priority:** P0. **Effort:** L — **flagged as this backlog's highest-uncertainty task**; see Internal Review.
@@ -529,6 +529,43 @@ Combined with the full pre-existing suite (same exclusions as T-011, plus the tw
 **Acceptance criteria:** a `Report` renders to PDF, matching its citations exactly.
 **Verification:** manual visual review + automated content-match test.
 **Architecture:** §8.4. **Roadmap:** §3 (Reporting Engine row, explicitly [New for rendering]). **Playbook:** Part D.
+
+**Outcome:** **Key architectural finding, resolved before implementation (T-027 Readiness Review):**
+unlike T-026, this task DOES construct a Domain `Export` entity — §10.1 line 604 restricts
+`Export`/`ExportFormat` to "PDF or Word", which is exactly what PDF rendering is; `Export`
+(T-024) had existed, unused, until this task. No PDF rendering library was previously declared
+(`ADR-0001` names none) — added `reportlab` (runtime) via new **ADR-0003**, after comparing it
+against `weasyprint`/`pdfkit`/`xhtml2pdf` (rejected for external system-binary dependencies or
+unavailability); `jinja2` (already declared, "Templating (report / Publication Engine)")
+deliberately NOT used — zero import — deferred to a future layout-polish fast-follow, matching
+BACKLOG's own Internal Review split for this task ("render the citation and data content" now,
+"publication-quality layout" later). `pypdf` added as a **dev-only** dependency, used solely by
+the new automated content-match test. New Domain port `IPdfRenderer` + `CitationSnapshot`
+(`domain/reporting_engine.py`, alongside T-025's/T-026's ports). New Domain repository
+`IExportRepository` (`add`, `get_by_report_version_and_format` — natural-key idempotency,
+flagged deviation from §11.2's literal "idempotency key" wording, justified in the Readiness
+Review). New Infrastructure adapter `infrastructure/reporting/pdf_renderer_adapter.py`
+(`PdfRendererAdapter`) — genuinely new code, no existing tested code wrapped (confirmed by
+re-reading `reporting/orchestrator.py`/`manuscript_figures.py`/`manuscript_tables.py`; all three
+produce academic-publication artifacts, not an in-product `Report` render). Two new Application
+orchestrators: `finalize_report.py` (`FinalizeReportOrchestrator` — the previously-unbuilt
+`FinalizeReport` command, §11.2 line 722, a minimal necessary prerequisite this task discovered
+it needed; provides §11.2 line 727's "finalizing twice is a no-op" idempotency at the
+Application layer without loosening `Report.finalize()`'s own Domain-level terminal-state
+guard) and `generate_export.py` (`GenerateExportOrchestrator` — requires a `FINALIZED` `Report`,
+rejects a draft rather than auto-finalizing it, a deliberate product-behavior choice). 18 new
+tests (5 adapter: content-match via `pypdf` text extraction, empty-citations/report-id/version
+rejection, markup-escaping, IG-001 ast import check; 5 `FinalizeReportOrchestrator`: finalize,
+idempotent-twice, unknown-report rejection, no-Infrastructure ast check; 8
+`GenerateExportOrchestrator`: real end-to-end PDF generation via the real `PdfRendererAdapter`,
+idempotent-no-re-render via a counting spy renderer, draft-report/no-citations/unknown-report/
+non-PDF-format rejection, no-Infrastructure ast check). Full regression (`tests/unit`, excluding
+two pre-existing, environment-drift-broken CLI collection files — see Current Task Risks): 1068
+passed, 1 skipped (was N/A at this exact scope in prior sessions' narrower invocations — see
+Reuse Summary in the full task report). `tests/integration`: 5 passed. IG-001: clean.
+`T-027_MIGRATION_RISK_CHECKLIST.md`, `CONTEXT_PACK_REPORTING.md` (extended, now covers all three
+Reporting Infrastructure adapters), and `docs/adr/0003-pdf-rendering-library-reportlab.md`
+authored before/during implementation.
 
 ### T-028 — Build in-app Report viewing screen
 **Purpose:** the Presentation-layer half of Reporting.

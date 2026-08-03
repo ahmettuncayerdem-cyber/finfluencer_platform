@@ -13,9 +13,13 @@ equivalent, turning a completed `AnalysisRun` into a citable `InterpretationReco
 BACKLOG.md T-026 adds ``ExportReportTableOrchestrator`` -- resolves a `Report`'s citations back
 to their source `AnalysisRun`s/`CollectionRun` and exports the joined table via
 `reporting.master_table` (wrapped unmodified); constructs no Domain `Export` entity (section
-10.1 restricts `Export` to PDF/Word). Grows one module per command as each vertical slice needs
-it, not designed speculatively ahead of time. See `CONTEXT_PACK.md` for T-011's
-orchestration-sequence diagram and IG-001 walkthrough.
+10.1 restricts `Export` to PDF/Word). BACKLOG.md T-027 adds ``FinalizeReportOrchestrator`` (the
+previously-unbuilt `FinalizeReport` command, section 11.2 line 722) and
+``GenerateExportOrchestrator`` -- the first orchestrator that DOES construct an `Export` (T-024,
+unused until now), rendering a finalized `Report`'s citations to PDF via `IPdfRenderer`
+(`reportlab`, ADR-0003). Grows one module per command as each vertical slice needs it, not
+designed speculatively ahead of time. See `CONTEXT_PACK.md` for T-011's orchestration-sequence
+diagram and IG-001 walkthrough.
 """
 
 from __future__ import annotations
@@ -29,6 +33,16 @@ from finfluencer.application.orchestrators.export_report_table import (
     ExportReportTableCommand,
     ExportReportTableOrchestrator,
     ExportReportTableResult,
+)
+from finfluencer.application.orchestrators.finalize_report import (
+    FinalizeReportCommand,
+    FinalizeReportOrchestrator,
+    FinalizeReportResult,
+)
+from finfluencer.application.orchestrators.generate_export import (
+    GenerateExportCommand,
+    GenerateExportOrchestrator,
+    GenerateExportResult,
 )
 from finfluencer.application.orchestrators.generate_report import (
     GenerateReportCommand,
@@ -53,6 +67,12 @@ __all__ = [
     "ExportReportTableCommand",
     "ExportReportTableOrchestrator",
     "ExportReportTableResult",
+    "FinalizeReportCommand",
+    "FinalizeReportOrchestrator",
+    "FinalizeReportResult",
+    "GenerateExportCommand",
+    "GenerateExportOrchestrator",
+    "GenerateExportResult",
     "GenerateReportCommand",
     "GenerateReportOrchestrator",
     "GenerateReportResult",

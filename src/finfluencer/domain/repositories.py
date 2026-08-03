@@ -31,6 +31,11 @@ BACKLOG.md T-026 adds `get_by_id` to `IInterpretationRecordRepository` -- `Expor
 needs to resolve a Report's citations back to their source AnalysisRuns' CollectionRun, same
 "add the exact method the current task needs" discipline as every repository extension above.
 
+BACKLOG.md T-027 adds `IExportRepository` -- `add`, `get_by_report_version_and_format` (the
+natural-key idempotency lookup `GenerateExportOrchestrator` uses in place of a separate
+caller-supplied idempotency token, Readiness Review Q8), same minimal-surface discipline as
+every repository above.
+
 No concrete implementation exists anywhere in this repository yet. BACKLOG.md T-009/T-011/T-020
 explicitly exclude Persistence Layer work ("No persistence implementation yet," operator
 instruction, 2026-08-01). A test double implementing any of these `Protocol`s (as used in
@@ -47,6 +52,7 @@ from typing import Protocol
 from finfluencer.domain.entities._common import EntityId
 from finfluencer.domain.entities.analysis_run import AnalysisRun
 from finfluencer.domain.entities.collection_run import CollectionRun
+from finfluencer.domain.entities.export import Export, ExportFormat
 from finfluencer.domain.entities.interpretation_record import InterpretationRecord
 from finfluencer.domain.entities.project import Project
 from finfluencer.domain.entities.report import Report
@@ -188,5 +194,33 @@ class IInterpretationRecordRepository(Protocol):
         isolation is enforced one level down, by the caller's own subsequent
         `IAnalysisRunRepository.get_by_id(project_id, record.analysis_run_id)` call returning
         `None` for a record whose AnalysisRun belongs to another project.
+        """
+        ...
+
+
+class IExportRepository(Protocol):
+    """Domain- and Application-owned interface, per section 12.1 lines 831/839 above.
+
+    Two methods only -- exactly what `GenerateExportOrchestrator` (T-027) needs. No `update`
+    method: `Export` (section 10.1, lines 603-609) is immutable by construction -- there is
+    nothing to mutate once persisted, same reasoning `IInterpretationRecordRepository` already
+    documents for `InterpretationRecord`.
+    """
+
+    def add(self, export: Export) -> None:
+        """Persist a newly created Export."""
+        ...
+
+    def get_by_report_version_and_format(
+        self, report_id: EntityId, report_version: int, format: ExportFormat,
+    ) -> Export | None:
+        """Look up a previously-generated Export by its natural key.
+
+        Returns `None` on no match -- `GenerateExportOrchestrator`'s signal to actually render
+        a new one. A match is the natural-key equivalent of section 11.2 line 727's "re-request
+        returns the existing Export, no duplicate render" -- `(report_id, report_version,
+        format)` already uniquely determines an Export in this synchronous, single-process
+        implementation, so no separate caller-supplied idempotency token is introduced (Readiness
+        Review Q8, flagged design note).
         """
         ...

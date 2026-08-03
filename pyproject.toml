@@ -165,6 +165,13 @@ seaborn    = "^0.13"
 # ---- Templating (report / Publication Engine) -------------------------------
 jinja2 = "^3.1"
 
+# ---- PDF rendering (Reporting & Publication Engine) --------------------------
+# reportlab renders `Report` content (BACKLOG.md T-027, ADR-0003) to PDF via its own
+# Platypus flowable API -- no external system binary/library dependency (unlike weasyprint's
+# Cairo/Pango or pdfkit's wkhtmltopdf), the deciding factor for a single-developer, sandboxed
+# environment. See docs/adr/0003-pdf-rendering-library-reportlab.md for the full comparison.
+reportlab = "^4.0"
+
 # ---- Reproducibility --------------------------------------------------------
 # gitpython lets core.reproducibility capture the exact commit hash on every
 # pipeline run and refuse to proceed if the working tree is dirty in strict mode.
@@ -210,6 +217,9 @@ mypy          = "^1.8"
 pre-commit    = "^3.6"
 types-pyyaml  = "^6.0"
 pandas-stubs  = "^2.1"
+# pypdf reads rendered PDF text back out for T-027's automated content-match test only --
+# never imported by production code (ADR-0003).
+pypdf         = "^5.0"
 
 
 # ==============================================================================
