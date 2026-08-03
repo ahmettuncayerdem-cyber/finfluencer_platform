@@ -1,4 +1,4 @@
-"""UI integration test for the Sprint 0 dev page (BACKLOG.md T-012).
+"""UI integration test for the Sprint 0 dev page (BACKLOG.md T-012, extended T-028).
 
 BACKLOG.md's own Verification line for T-012 is "manual click-through + IG-001 CI check" --
 "manual" is a human verification step (Role: "Claude or Copilot... human-approved"), not
@@ -32,3 +32,18 @@ def test_dev_ui_page_is_served_and_contains_expected_forms() -> None:
     # The two fetch() calls target the exact routes this task registered.
     assert 'fetch("/projects"' in html or "postJson(\"/projects\"" in html
     assert "/datasets/${datasetId}/collection-runs" in html
+
+
+def test_dev_ui_page_contains_the_t028_reports_section() -> None:
+    client = TestClient(create_app())
+    html = client.get("/").text
+
+    assert 'id="start-analysis-form"' in html
+    assert 'id="generate-report-form"' in html
+    assert 'id="report-actions-form"' in html
+    # The new routes this task registered are the ones the page's JS actually targets.
+    assert "/collection-runs/${collectionRunId}/analysis-runs" in html
+    assert "/projects/${form.project_id.value}/reports" in html
+    assert "${base}/finalize" in html
+    assert "${base}/exports" in html
+    assert "${base}/table" in html

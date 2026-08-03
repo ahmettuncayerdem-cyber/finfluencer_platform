@@ -8,7 +8,7 @@
 
 ## Critical Path
 
-`T-001 → T-002 → T-006 → T-007 → T-008 → T-009 → T-011 → T-013 → T-014 → [T-018→T-019→T-020→T-021] → [T-022→T-023 ✅] → [T-024→T-025→(T-026 ‖ T-027)→T-028] → T-029 → T-030 → T-031 → T-032`
+`T-001 → T-002 → T-006 → T-007 → T-008 → T-009 → T-011 → T-013 → T-014 → [T-018→T-019→T-020→T-021] → [T-022→T-023 ✅] → [T-024→T-025→(T-026 ‖ T-027)→T-028 ✅] → T-029 → T-030 → T-031 → T-032`
 
 **EPIC-03 (T-015–T-017, live collection) runs in parallel with EPIC-04/05's build phase**, not before it — it only needs to rejoin at T-029, since MVP requires real collected data but nothing in EPIC-04/05/06's code depends on collection being *live* rather than fixture-sourced. This is the one non-obvious parallelization opportunity in the whole backlog; see Internal Review.
 
@@ -24,7 +24,7 @@
 
 **EPIC-05 (Sentiment Analysis, Sprint 3): 2/2 tasks CLOSED — SPRINT 3 COMPLETE.** T-022 — `SentimentAnalysisAdapter` wraps `sentiment.pipeline.run_sentiment` unmodified, second `IAnalysisEngine` implementation. T-023 — verified zero orchestrator diff since T-020 (`git diff`-confirmed, plus structural dispatch/signature/no-branching proof). ARB-01 — plugin architecture formally reviewed 2026-08-01, 8/10 dimensions Accept, 2/10 Generalize (non-blocking, tracked as TD-03/TD-04); no architectural changes recommended. **Sprint 3 formally CLOSED 2026-08-01.**
 
-**EPIC-06 (Reporting / MVP Core Loop, Sprint 4): 4/5 tasks closed.** `SPRINT_4_KICKOFF.md` approved 2026-08-01. T-024 — `InterpretationRecord`/`Report`/`Export` Domain entities, `Report` structurally never references `AnalysisRun` (ast-verified). T-025 — `GenerateReportOrchestrator`, real integration proof of a topic-AnalysisRun and a sentiment-AnalysisRun citing into one `Report`; `reporting/master_table.py` investigated and correctly deferred to T-026. T-026 — `ExportReportTableOrchestrator`, `reporting/master_table.py` finally reused unmodified as BACKLOG always intended; confirmed CSV/table export is not a Domain `Export` entity (§10.1 restricts `Export` to PDF/Word). T-027 — `PdfRendererAdapter` (`reportlab`, new dependency, ADR-0003) + `FinalizeReportOrchestrator`/`GenerateExportOrchestrator`; first real use of the `Export` entity (T-024, dormant until now); genuinely new implementation, no existing tested code to wrap, confirmed by re-inspection during its own Readiness Review. T-028 (in-app Report viewing screen) is next-in-sequence, awaiting its own Task Authorization. EPIC-07/EPIC-08 (except the housekeeping item below): not started.
+**EPIC-06 (Reporting / MVP Core Loop, Sprint 4): 5/5 tasks closed — SPRINT 4 COMPLETE.** `SPRINT_4_KICKOFF.md` approved 2026-08-01. T-024 — `InterpretationRecord`/`Report`/`Export` Domain entities, `Report` structurally never references `AnalysisRun` (ast-verified). T-025 — `GenerateReportOrchestrator`, real integration proof of a topic-AnalysisRun and a sentiment-AnalysisRun citing into one `Report`; `reporting/master_table.py` investigated and correctly deferred to T-026. T-026 — `ExportReportTableOrchestrator`, `reporting/master_table.py` finally reused unmodified as BACKLOG always intended; confirmed CSV/table export is not a Domain `Export` entity (§10.1 restricts `Export` to PDF/Word). T-027 — `PdfRendererAdapter` (`reportlab`, new dependency, ADR-0003) + `FinalizeReportOrchestrator`/`GenerateExportOrchestrator`; first real use of the `Export` entity (T-024, dormant until now); genuinely new implementation, no existing tested code to wrap, confirmed by re-inspection during its own Readiness Review. T-028 — first real Presentation/API exposure of Reporting (and, via `StartAnalysisRun`, Analysis) — five new routes over six completely-unmodified orchestrators (one new, `GetReportOrchestrator`, T-020/025/026/027 otherwise untouched); `StartAnalysisRun`'s first-ever API exposure required a deliberately-scoped demo `IAnalysisEngine` (ADR-0004), not the real BERTopic adapter. **Sprint 4 formally CLOSED 2026-08-03.** EPIC-07/EPIC-08 (except the housekeeping item below): not started.
 
 **Sprint progress (Sprint 0 = EPIC-00 through EPIC-02): 10 of 14 Sprint-0 tasks closed — SPRINT 0 COMPLETE.** T-001, T-004, T-005, T-006, T-007, T-008 (implementation), T-009 (Sprint 0 scope), T-010 (Sprint 0 scope), T-011 (Sprint 0 scope), T-012 (Sprint 0 scope), T-013 (Sprint 0 scope), T-014 (closed, human-verified) — every task this sprint's own scope required is closed. T-002/T-003 remain open but, per the Dependency Ruling below, never gated this closure. Formal closure documents: `SPRINT_0_RETROSPECTIVE.md`, `SPRINT_0_COMPLETION_REPORT.md`, `SPRINT_1_READINESS_ASSESSMENT.md` (2026-08-01). Sprint 0 remains CLOSED and immutable.
 
@@ -567,7 +567,7 @@ Reuse Summary in the full task report). `tests/integration`: 5 passed. IG-001: c
 Reporting Infrastructure adapters), and `docs/adr/0003-pdf-rendering-library-reportlab.md`
 authored before/during implementation.
 
-### T-028 — Build in-app Report viewing screen
+### T-028 — Build in-app Report viewing screen — **CLOSED 2026-08-03**
 **Purpose:** the Presentation-layer half of Reporting.
 **Depends on:** T-026, T-027.
 **Priority:** P0. **Effort:** M.
@@ -575,6 +575,45 @@ authored before/during implementation.
 **Acceptance criteria:** FG-001/FG-002 compliant — reproducible solely from backend state.
 **Verification:** manual click-through, IG-001 CI check.
 **Architecture:** FG-001, FG-002, §13. **Roadmap:** §5 Phase 1. **Playbook:** Part D.
+
+**Outcome:** **Key finding, resolved before implementation (T-028 Readiness Review):**
+`GenerateReport` needs a real, completed `AnalysisRun`, but `StartAnalysisRun` (T-020) had never
+been exposed via API — a real gap outside T-028's own named dependencies (T-026/T-027 only).
+Resolved by building `POST /collection-runs/{id}/analysis-runs` (§11.3 line 779, matched exactly)
+reusing `StartAnalysisRunOrchestrator` (T-020) unmodified, wired to a new, deliberately-scoped
+demo-only `IAnalysisEngine` (`_DemoTopicAssignmentEngine`, `bootstrap.py`) — NOT T-019's real
+`TopicsAnalysisAdapter` (too heavy/model-dependent for a demo endpoint; T-019's own tests already
+inject fakes for the same reason). Recorded as **ADR-0004**. Does not resolve ARB-01's TD-03/
+TD-04 (`AnalysisType`-dispatch generalization) — wired directly, not through any new dispatch
+mechanism.
+
+Five new routes (`api/routes/analysis.py`, `api/routes/reporting.py`), all reusing T-020/T-025/
+T-026/T-027's orchestrators **completely unmodified**: `StartAnalysisRun`, `GenerateReport`,
+`GetReport` (new `GetReportOrchestrator` — the previously-unbuilt §11.2 line 723 query, a single
+`IReportRepository.get_by_id()` wrap), `FinalizeReport`, `GenerateExport` (returns PDF bytes
+directly, no download endpoint — deterministic `(report_id)`-keyed path makes idempotent replay
+still serve real bytes) and table export (T-026's own capability, no §11.2 command name, returns
+CSV bytes directly). `bootstrap.py` extended with four new in-memory Persistence stand-ins
+(`AnalysisRun`, `Report`, `InterpretationRecord`, `Export`) and wiring for all six new
+orchestrator instances, following the exact `_InMemoryProjectRepository` precedent. `web/
+index.html` extended with a "Start Analysis Run"/"Reports" section (Generate/Get/Finalize/
+Export PDF/Export CSV), each action showing exactly what its route returned (FG-002).
+
+Full, real end-to-end flow manually smoke-tested (Collection → demo-Analysis → Report → Get →
+Finalize → Export PDF → idempotent replay → table-export's expected 422) before writing the
+automated test suite. 45 new tests (5 `GetReportOrchestrator`; 4 `api/routes/analysis.py`,
+covering the real fixture-backed Collection→Analysis chain; 7 `api/routes/reporting.py`,
+covering the full HTTP-level flow, idempotent PDF replay, and the documented table-export 422; 2
+extending `test_ui_page.py` for the new Reports section; 2 extending
+`test_architectural_conformance.py` for the two new route modules — all reusing existing test
+infrastructure/patterns, no new test framework). Full regression (`tests/unit`, excluding the
+two pre-existing, T-027-already-flagged environment-drift-broken CLI collection files): 1087
+passed, 1 skipped. `tests/integration`: 5 passed. Walking-Skeleton-adjacent subset
+(`test_application` + `test_api`): 82 passed. IG-001: clean. `T-028_MIGRATION_RISK_CHECKLIST.md`,
+`api/CONTEXT_PACK.md` (extended), `docs/adr/0004-demo-analysis-engine-for-api-exposure.md`
+authored before/during implementation.
+
+**EPIC-06 (Reporting / MVP Core Loop, Sprint 4) is now 5/5 tasks CLOSED — SPRINT 4 COMPLETE.**
 
 ### T-029 — Verify MVP acceptance: full loop, reproducible
 **Purpose:** the single gate that actually declares MVP done, per Roadmap §6.

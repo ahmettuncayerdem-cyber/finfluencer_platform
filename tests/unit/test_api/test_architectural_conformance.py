@@ -1,4 +1,4 @@
-"""Architectural conformance tests for the API Layer (BACKLOG.md T-012).
+"""Architectural conformance tests for the API Layer (BACKLOG.md T-012, extended T-028).
 
 `scripts/check_layer_dependencies.py`'s IG-001 checker already mechanically enforces
 `api` -> not importing `infrastructure`/`persistence` (its `FORBIDDEN_IMPORTS` rule set). It does
@@ -20,8 +20,10 @@ import ast
 import inspect
 from pathlib import Path
 
+from finfluencer.api.routes import analysis as analysis_routes
 from finfluencer.api.routes import collection as collection_routes
 from finfluencer.api.routes import identity as identity_routes
+from finfluencer.api.routes import reporting as reporting_routes
 
 
 def _imported_module_names(module: object) -> list[str]:
@@ -44,6 +46,20 @@ def test_identity_route_module_imports_only_application_and_presentation() -> No
 
 def test_collection_route_module_imports_only_application_and_presentation() -> None:
     imported = _imported_module_names(collection_routes)
+    assert not any(m.startswith("finfluencer.domain") for m in imported)
+    assert not any(m.startswith("finfluencer.infrastructure") for m in imported)
+    assert not any(m.startswith("finfluencer.persistence") for m in imported)
+
+
+def test_analysis_route_module_imports_only_application_and_presentation() -> None:
+    imported = _imported_module_names(analysis_routes)
+    assert not any(m.startswith("finfluencer.domain") for m in imported)
+    assert not any(m.startswith("finfluencer.infrastructure") for m in imported)
+    assert not any(m.startswith("finfluencer.persistence") for m in imported)
+
+
+def test_reporting_route_module_imports_only_application_and_presentation() -> None:
+    imported = _imported_module_names(reporting_routes)
     assert not any(m.startswith("finfluencer.domain") for m in imported)
     assert not any(m.startswith("finfluencer.infrastructure") for m in imported)
     assert not any(m.startswith("finfluencer.persistence") for m in imported)

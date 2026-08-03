@@ -1,5 +1,5 @@
-"""Composition root (BACKLOG.md T-012) -- the one module allowed to import across all six
-layers for wiring purposes only.
+"""Composition root (BACKLOG.md T-012, extended by T-028) -- the one module allowed to import
+across all six layers for wiring purposes only.
 
 Why this needs to exist and why it cannot live inside any of the six layers: every layer's own
 forbidden-dependency rules (`PRODUCT_ARCHITECTURE.md` section 12.1) are written from the
@@ -30,6 +30,28 @@ implementation") is honored exactly: nothing durable is introduced here.
 **Collection execution reuses T-010's adapter unmodified**, wired to `FixtureCollectionProvider`
 (no live network -- same Sprint 0 scope T-010 itself carried) and a temp directory as
 `base_root`, fresh each process start.
+
+**T-028 extends this composition root with the Analysis and Reporting Services' first
+Presentation/API wiring.** `StartAnalysisRunOrchestrator` (T-020), `GenerateReportOrchestrator`
+(T-025), `ExportReportTableOrchestrator` (T-026), `FinalizeReportOrchestrator`/
+`GenerateExportOrchestrator` (T-027), and `GetReportOrchestrator` (T-028) are all wired here
+**completely unmodified** -- every one of them was already fully built and tested before this
+task; this is the first time any of them is reachable over real HTTP.
+
+**`_DemoTopicAssignmentEngine` is a deliberate, clearly-scoped exception to "reuse existing
+Infrastructure unmodified."** It implements `IAnalysisEngine` (`domain/analysis_engine.py`) but
+is **not** `TopicsAnalysisAdapter` (T-019) and does not wrap, import, or otherwise touch it.
+Reasoning, recorded in full in `T-028_MIGRATION_RISK_CHECKLIST.md`: `StartAnalysisRun` (T-020)
+had never been exposed via API before this task, and the real `TopicsAnalysisAdapter` requires
+loading an actual BERTopic model -- heavy, network/model-availability-dependent, and T-019's own
+test suite already establishes the precedent of injecting a fake `runner_factory`/`model_loader`
+rather than load a real one even in its own tests. `_DemoTopicAssignmentEngine` reads a real,
+already-collected `comments.parquet` and writes a real `topics.parquet` (deterministic topic
+assignment, no ML), in the exact shape `MasterTableExportAdapter`'s own tests fixture -- so every
+downstream Reporting adapter (`ResultSnapshotAdapter`, `MasterTableExportAdapter`,
+`PdfRendererAdapter`) consumes it with zero special-casing, genuinely unmodified. It does **not**
+resolve TD-03/TD-04 (ARB-01's flagged `AnalysisType`-dispatch generalization) -- wired directly,
+not through any new dispatch/registry mechanism.
 """
 
 from __future__ import annotations
@@ -39,24 +61,44 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
+from finfluencer.api.routes.analysis import router as analysis_router
 from finfluencer.api.routes.collection import router as collection_router
 from finfluencer.api.routes.identity import router as identity_router
+from finfluencer.api.routes.reporting import router as reporting_router
 from finfluencer.application.orchestrators import (
     CreateProjectOrchestrator,
+    ExportReportTableOrchestrator,
+    FinalizeReportOrchestrator,
+    GenerateExportOrchestrator,
+    GenerateReportOrchestrator,
+    GetReportOrchestrator,
+    StartAnalysisRunOrchestrator,
     StartCollectionRunOrchestrator,
 )
 from finfluencer.core.config import load_settings
+from finfluencer.domain.analysis_engine import AnalysisOutcome
 from finfluencer.domain.entities._common import EntityId
+from finfluencer.domain.entities.analysis_run import AnalysisRun
 from finfluencer.domain.entities.collection_run import CollectionRun
+from finfluencer.domain.entities.export import Export, ExportFormat
+from finfluencer.domain.entities.interpretation_record import InterpretationRecord
 from finfluencer.domain.entities.project import Project
+from finfluencer.domain.entities.report import Report
 from finfluencer.infrastructure.collection import (
     CollectionEngineAdapter,
     FixtureCollectionProvider,
     fixture_transcript_fetcher,
 )
+from finfluencer.infrastructure.reporting import (
+    MasterTableExportAdapter,
+    PdfRendererAdapter,
+    ResultSnapshotAdapter,
+)
+from finfluencer.utils.io import read_parquet, write_parquet
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_SETTINGS = _REPO_ROOT / "config" / "settings.yaml"
@@ -87,6 +129,136 @@ class _InMemoryCollectionRunRepository:
         self, dataset_id: EntityId, idempotency_key: str
     ) -> CollectionRun | None:
         return self._by_key.get((dataset_id, idempotency_key))
+
+
+class _InMemoryAnalysisRunRepository:
+    """Sprint 0 stand-in for `IAnalysisRunRepository` (T-020/T-025) -- see module docstring."""
+
+    def __init__(self) -> None:
+        self._by_key: dict[tuple[EntityId, str], AnalysisRun] = {}
+        self._by_id: dict[EntityId, AnalysisRun] = {}
+
+    def add(self, analysis_run: AnalysisRun, *, idempotency_key: str) -> None:
+        self._by_key[(analysis_run.project_id, idempotency_key)] = analysis_run
+        self._by_id[analysis_run.id] = analysis_run
+
+    def get_by_idempotency_key(
+        self, project_id: EntityId, idempotency_key: str
+    ) -> AnalysisRun | None:
+        return self._by_key.get((project_id, idempotency_key))
+
+    def get_by_id(self, project_id: EntityId, analysis_run_id: EntityId) -> AnalysisRun | None:
+        run = self._by_id.get(analysis_run_id)
+        if run is None or run.project_id != project_id:
+            return None
+        return run
+
+
+class _InMemoryReportRepository:
+    """Sprint 0 stand-in for `IReportRepository` (T-025) -- see module docstring."""
+
+    def __init__(self) -> None:
+        self._by_id: dict[EntityId, Report] = {}
+
+    def add(self, report: Report) -> None:
+        self._by_id[report.id] = report
+
+    def get_by_id(self, project_id: EntityId, report_id: EntityId) -> Report | None:
+        report = self._by_id.get(report_id)
+        if report is None or report.project_id != project_id:
+            return None
+        return report
+
+
+class _InMemoryInterpretationRecordRepository:
+    """Sprint 0 stand-in for `IInterpretationRecordRepository` (T-025/T-026) -- see module
+    docstring.
+    """
+
+    def __init__(self) -> None:
+        self._by_id: dict[EntityId, InterpretationRecord] = {}
+
+    def add(self, record: InterpretationRecord) -> None:
+        self._by_id[record.id] = record
+
+    def get_by_id(self, record_id: EntityId) -> InterpretationRecord | None:
+        return self._by_id.get(record_id)
+
+
+class _InMemoryExportRepository:
+    """Sprint 0 stand-in for `IExportRepository` (T-027) -- see module docstring."""
+
+    def __init__(self) -> None:
+        self._exports: list[Export] = []
+
+    def add(self, export: Export) -> None:
+        self._exports.append(export)
+
+    def get_by_report_version_and_format(
+        self, report_id: EntityId, report_version: int, format: ExportFormat,
+    ) -> Export | None:
+        for export in self._exports:
+            if (
+                export.report_id == report_id
+                and export.report_version == report_version
+                and export.format == format
+            ):
+                return export
+        return None
+
+
+class _DemoTopicAssignmentEngine:
+    """Deliberate, clearly-scoped demo stand-in for `IAnalysisEngine` (BACKLOG.md T-028) --
+    NOT `TopicsAnalysisAdapter` (T-019), does not wrap or import it. See this module's own
+    docstring (top) and `T-028_MIGRATION_RISK_CHECKLIST.md` for the full reasoning.
+
+    Deterministic and dependency-free (`pandas`/`finfluencer.utils.io` only): reads the real
+    `comments.parquet` a real `CollectionRun` already produced, assigns each comment a topic by
+    a fixed rule (`hash(comment_id) % 3`, not randomized -- reproducible across calls), and
+    writes a real `topics.parquet` in the exact shape `reporting.master_table.build_master_table`
+    (via `MasterTableExportAdapter`, T-026) and `ResultSnapshotAdapter` (T-025) both already
+    expect: `comment_id, configuration, topic_id, topic_label, topic_prob` for the `pooled`
+    configuration; `comment_id, configuration, topic_id, topic_label` (no `topic_prob`) for
+    `within_analyst` -- matching `MasterTableExportAdapter`'s own test fixtures exactly, so every
+    downstream Reporting adapter consumes this output with zero special-casing.
+
+    Produces topics-shaped output only -- a `Report` citing only this demo engine's output
+    cannot be table-exported via `MasterTableExportAdapter` (which needs both a topics- and a
+    sentiment-shaped `AnalysisRun`); `MasterTableExportAdapter` already raises a clear
+    `FileNotFoundError` in that case (T-026's own documented, not-a-bug behavior) -- not
+    silently wrong output.
+    """
+
+    def __init__(self, *, base_root: Path) -> None:
+        self._base_root = base_root
+
+    def run(self, analysis_run_id: str, collection_run_id: str) -> AnalysisOutcome:
+        comments_path = self._base_root / collection_run_id / "data_raw" / "comments.parquet"
+        comments = read_parquet(comments_path)
+
+        pooled_rows: list[dict[str, Any]] = []
+        within_rows: list[dict[str, Any]] = []
+        for comment_id in comments["comment_id"]:
+            topic_id = abs(hash(str(comment_id))) % 3
+            topic_label = f"demo_topic_{topic_id}"
+            pooled_rows.append({
+                "comment_id": comment_id, "configuration": "pooled",
+                "topic_id": topic_id, "topic_label": topic_label, "topic_prob": 0.75,
+            })
+            within_rows.append({
+                "comment_id": comment_id, "configuration": "within_analyst",
+                "topic_id": topic_id, "topic_label": topic_label,
+            })
+        topics_df = pd.DataFrame(pooled_rows + within_rows)
+
+        output_path = self._base_root / analysis_run_id / "data_processed" / "topics.parquet"
+        write_parquet(topics_df, output_path)
+
+        return AnalysisOutcome(
+            analysis_run_id=analysis_run_id,
+            row_count=len(comments),
+            topic_count=int(topics_df["topic_id"].nunique()) if not topics_df.empty else 0,
+        )
 
 
 def create_app(
@@ -121,6 +293,18 @@ def create_app(
 
     project_repository = _InMemoryProjectRepository()
     collection_run_repository = _InMemoryCollectionRunRepository()
+    analysis_run_repository = _InMemoryAnalysisRunRepository()
+    report_repository = _InMemoryReportRepository()
+    interpretation_record_repository = _InMemoryInterpretationRecordRepository()
+    export_repository = _InMemoryExportRepository()
+
+    demo_analysis_engine = _DemoTopicAssignmentEngine(base_root=base_root)
+    result_snapshot_reader = ResultSnapshotAdapter(base_root=base_root)
+    table_exporter = MasterTableExportAdapter(base_root=base_root)
+    pdf_renderer = PdfRendererAdapter()
+
+    exports_root = base_root / "exports"
+    exports_root.mkdir(parents=True, exist_ok=True)
 
     app = FastAPI(
         title="Finfluencer Research Platform -- Walking Skeleton (Sprint 0)",
@@ -133,9 +317,40 @@ def create_app(
         collection_run_repository=collection_run_repository,
         collection_engine=collection_engine,
     )
+    app.state.start_analysis_run_orchestrator = StartAnalysisRunOrchestrator(
+        analysis_run_repository=analysis_run_repository,
+        analysis_engine=demo_analysis_engine,
+    )
+    app.state.generate_report_orchestrator = GenerateReportOrchestrator(
+        analysis_run_repository=analysis_run_repository,
+        report_repository=report_repository,
+        interpretation_record_repository=interpretation_record_repository,
+        snapshot_reader=result_snapshot_reader,
+    )
+    app.state.get_report_orchestrator = GetReportOrchestrator(
+        report_repository=report_repository,
+    )
+    app.state.finalize_report_orchestrator = FinalizeReportOrchestrator(
+        report_repository=report_repository,
+    )
+    app.state.generate_export_orchestrator = GenerateExportOrchestrator(
+        report_repository=report_repository,
+        interpretation_record_repository=interpretation_record_repository,
+        export_repository=export_repository,
+        pdf_renderer=pdf_renderer,
+    )
+    app.state.export_report_table_orchestrator = ExportReportTableOrchestrator(
+        report_repository=report_repository,
+        interpretation_record_repository=interpretation_record_repository,
+        analysis_run_repository=analysis_run_repository,
+        table_exporter=table_exporter,
+    )
+    app.state.exports_root = exports_root
 
     app.include_router(identity_router)
     app.include_router(collection_router)
+    app.include_router(analysis_router)
+    app.include_router(reporting_router)
 
     @app.get("/", include_in_schema=False)
     def _serve_dev_ui() -> Any:

@@ -17,9 +17,11 @@ to their source `AnalysisRun`s/`CollectionRun` and exports the joined table via
 previously-unbuilt `FinalizeReport` command, section 11.2 line 722) and
 ``GenerateExportOrchestrator`` -- the first orchestrator that DOES construct an `Export` (T-024,
 unused until now), rendering a finalized `Report`'s citations to PDF via `IPdfRenderer`
-(`reportlab`, ADR-0003). Grows one module per command as each vertical slice needs it, not
-designed speculatively ahead of time. See `CONTEXT_PACK.md` for T-011's orchestration-sequence
-diagram and IG-001 walkthrough.
+(`reportlab`, ADR-0003). BACKLOG.md T-028 adds ``GetReportOrchestrator`` -- the previously-unbuilt
+`GetReport` query (section 11.2 line 723), the first pure read this package exposes on its own
+rather than as a side effect inside a larger command. Grows one module per command as each
+vertical slice needs it, not designed speculatively ahead of time. See `CONTEXT_PACK.md` for
+T-011's orchestration-sequence diagram and IG-001 walkthrough.
 """
 
 from __future__ import annotations
@@ -49,6 +51,11 @@ from finfluencer.application.orchestrators.generate_report import (
     GenerateReportOrchestrator,
     GenerateReportResult,
 )
+from finfluencer.application.orchestrators.get_report import (
+    GetReportCommand,
+    GetReportOrchestrator,
+    GetReportResult,
+)
 from finfluencer.application.orchestrators.start_analysis_run import (
     StartAnalysisRunCommand,
     StartAnalysisRunOrchestrator,
@@ -76,6 +83,9 @@ __all__ = [
     "GenerateReportCommand",
     "GenerateReportOrchestrator",
     "GenerateReportResult",
+    "GetReportCommand",
+    "GetReportOrchestrator",
+    "GetReportResult",
     "StartAnalysisRunCommand",
     "StartAnalysisRunOrchestrator",
     "StartAnalysisRunResult",

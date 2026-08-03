@@ -16,7 +16,17 @@
   query. No `ListDatasets`/`ListCollectionRunsForDataset`/`GetCollectionRun` query is implemented
   yet (PRODUCT_ARCHITECTURE.md section 11.2 line 684); this page only ever renders state the API
   Gateway has already returned to it directly (section 13.1's own frontend principle), never
-  state it invented or fetched from elsewhere.
+  state it invented or fetched from elsewhere -- FG-002's exact requirement, honored below for
+  the Reports section too (BACKLOG.md T-028): a Report's status/citation count shown is always
+  what GetReport last returned, never computed client-side.
+
+  Reports section note (T-028): StartAnalysisRun (T-020) is wired here for the first time, to a
+  deliberately demo-only IAnalysisEngine (bootstrap.py's `_DemoTopicAssignmentEngine`, NOT
+  T-019's real TopicsAnalysisAdapter -- see bootstrap.py's own docstring). It only ever produces
+  topics-shaped output, so "Export as CSV table" below will correctly fail with a 422 for any
+  Report built from this page alone (a Report needs both a topics- and a sentiment-shaped
+  AnalysisRun to table-export, T-026's own documented limitation) -- shown as an honest error
+  state, not hidden.
 -->
 <html lang="en">
 <head>
@@ -68,6 +78,49 @@
     console: <code>crypto.randomUUID()</code>) to exercise this call.
   </p>
   <p id="start-run-error" class="error"></p>
+
+  <h2>Start Analysis Run (demo)</h2>
+  <form id="start-analysis-form">
+    <label for="analysis-project-id">Project ID (UUID)</label>
+    <input id="analysis-project-id" name="project_id" required />
+    <label for="analysis-collection-run-id">Collection Run ID (from a row above)</label>
+    <input id="analysis-collection-run-id" name="collection_run_id" required />
+    <label for="analysis-idem">Idempotency key</label>
+    <input id="analysis-idem" name="idempotency_key" required />
+    <button type="submit">Start Analysis Run</button>
+  </form>
+  <p class="hint">
+    Uses a demo topic-assignment engine, not real BERTopic (bootstrap.py's own documented
+    reason) — enough to produce a real, backend-computed AnalysisRun for the Reports flow below.
+  </p>
+  <p id="start-analysis-error" class="error"></p>
+
+  <h2>Reports</h2>
+  <form id="generate-report-form">
+    <label for="report-project-id">Project ID (same as above)</label>
+    <input id="report-project-id" name="project_id" required />
+    <label for="report-analysis-run-id">Analysis Run ID (from a row above)</label>
+    <input id="report-analysis-run-id" name="analysis_run_id" required />
+    <button type="submit">Generate Report</button>
+  </form>
+  <p id="generate-report-error" class="error"></p>
+
+  <form id="report-actions-form">
+    <label for="action-report-id">Report ID (from a row above)</label>
+    <input id="action-report-id" name="report_id" required />
+    <label for="action-project-id">Project ID</label>
+    <input id="action-project-id" name="project_id" required />
+    <button type="submit" name="action" value="get">Get Report</button>
+    <button type="submit" name="action" value="finalize">Finalize Report</button>
+    <button type="submit" name="action" value="export">Export as PDF</button>
+    <button type="submit" name="action" value="table">Export as CSV table</button>
+  </form>
+  <p class="hint">
+    Export as PDF requires the Report to be finalized first. Export as CSV table requires two
+    AnalysisRuns of different types cited into the same Report — not achievable from this demo
+    page alone (see the note above); expect a 422 here.
+  </p>
+  <p id="report-actions-error" class="error"></p>
 
   <h2>Status list (this session only)</h2>
   <table id="status-table">
@@ -133,6 +186,84 @@
           idempotency_key: form.idempotency_key.value,
         });
         addStatusRow("CollectionRun", result.id, result.status, `dataset ${result.dataset_id}`);
+      } catch (err) {
+        errorEl.textContent = err.message;
+      }
+    });
+
+    document.querySelector("#start-analysis-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const errorEl = document.querySelector("#start-analysis-error");
+      errorEl.textContent = "";
+      const form = event.target;
+      const collectionRunId = form.collection_run_id.value;
+      try {
+        const result = await postJson(`/collection-runs/${collectionRunId}/analysis-runs`, {
+          project_id: form.project_id.value,
+          collection_run_id: collectionRunId,
+          analysis_type_id: crypto.randomUUID(),
+          analysis_type_version: "demo-1.0.0",
+          idempotency_key: form.idempotency_key.value,
+        });
+        addStatusRow("AnalysisRun", result.id, result.status, `rows=${result.row_count} topics=${result.topic_count}`);
+      } catch (err) {
+        errorEl.textContent = err.message;
+      }
+    });
+
+    document.querySelector("#generate-report-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const errorEl = document.querySelector("#generate-report-error");
+      errorEl.textContent = "";
+      const form = event.target;
+      try {
+        const result = await postJson(`/projects/${form.project_id.value}/reports`, {
+          analysis_run_id: form.analysis_run_id.value,
+        });
+        addStatusRow("Report", result.id, result.status, `citations=${result.citation_count}`);
+      } catch (err) {
+        errorEl.textContent = err.message;
+      }
+    });
+
+    // Report actions form has four submit buttons sharing one form (name="action") -- FG-002
+    // is satisfied identically by all four: every value shown or downloaded is exactly what the
+    // corresponding route just returned, nothing computed or guessed client-side.
+    document.querySelector("#report-actions-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const errorEl = document.querySelector("#report-actions-error");
+      errorEl.textContent = "";
+      const form = event.target;
+      const action = event.submitter.value;
+      const projectId = form.project_id.value;
+      const reportId = form.report_id.value;
+      const base = `/projects/${projectId}/reports/${reportId}`;
+
+      try {
+        if (action === "get") {
+          const result = await fetch(base).then((r) => r.json());
+          addStatusRow("Report", result.id, result.status, `v${result.version} citations=${result.citation_count}`);
+        } else if (action === "finalize") {
+          const result = await postJson(`${base}/finalize`, {});
+          addStatusRow("Report", result.id, result.status, "finalized");
+        } else if (action === "export" || action === "table") {
+          const url = action === "export" ? `${base}/exports` : `${base}/table`;
+          const method = action === "export" ? "POST" : "GET";
+          const response = await fetch(url, { method });
+          if (!response.ok) {
+            const payload = await response.json();
+            throw new Error(typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail));
+          }
+          const blob = await response.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const filename = action === "export" ? `${reportId}.pdf` : `${reportId}.csv`;
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = filename;
+          link.click();
+          URL.revokeObjectURL(objectUrl);
+          addStatusRow("Export", reportId, "downloaded", `${blob.size} bytes (${filename})`);
+        }
       } catch (err) {
         errorEl.textContent = err.message;
       }
