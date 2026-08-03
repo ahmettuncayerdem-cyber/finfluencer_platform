@@ -781,17 +781,39 @@ named precisely, not a generic "more evidence needed" placeholder.
 No engineering performed this delta (investigation only, no files under `src/`/`tests/` touched).
 No architecture, governance, or ADR change.
 
+## Item 1 Resolved — Real-Environment Full-Suite Confirms RB-6 (2026-08-04)
+
+Operator ran `poetry run pytest -q` on the real Windows/Poetry environment, post `0d91cb1`/
+`a6341dc`. Literal result: progress reaches `[100%]`, no `FAILURES` section, no short-test-summary
+of failures (this setup's own established clean-run signature, present in every prior failing run
+this session and absent here). Coverage: `6281` stmts, `437` miss, `1204` branch, `140` brpart,
+**`91.60%`**, `Required test coverage of 75.0% reached`. All three new RB-6 files show 100%
+coverage with zero missed statements: `real_sentiment_engine.py` (20/0), `real_topics_engine.py`
+(27/0), `preprocess_adapter.py` (29/0) — direct evidence their dedicated unit tests exercise them
+fully in the real environment, not just the sandbox.
+
+**This is the exact missing evidence item named last delta.** Engineering Gate item 1 (RB-6
+real-environment parity) is now satisfied. **Release Blocker #6 is Resolved** — implemented,
+committed, sandbox-validated, and now real-environment-validated on the current commit, not a
+prior one.
+
+**Does this open Release Engineering for new work? No — checked, not assumed.** Nothing in the
+Meta Blocker dependency graph (`ENV-0x -> {#1,#3,#5,#7} -> #6`) was waiting on #6; closing it
+doesn't unlock a downstream item. The one remaining item from the prior delta — a scope decision
+among three paths for RB-6's deferred real-inference E2E test — is unchanged by this evidence:
+it was never an evidence gap, and this pytest run doesn't touch it (`n_neighbors=15` vs. an
+8-row fixture is unrelated to whether the suite passes). #3/#7 remain gated on operator-only
+actions (live network credentials; a configured git remote). #1/#2/#4 already resolved. No other
+Release blocker's gate opens on currently-held evidence.
+
+No engineering performed this delta (verification only). No architecture, governance, or ADR
+change.
+
 ## Executive Decision
 
-**Waiting for Operator** — two independent, specific items, neither generic:
-1. A real-environment full-suite `poetry run pytest -q` re-run (post-`0d91cb1`) to confirm this
-   sandbox's RB-6 validation (1118 passed/1 skipped) reproduces on the operator's machine.
-2. A scope decision among the three paths above for RB-6's deferred real-inference E2E test —
-   this session will not pick one unilaterally; it is a data-methodology/scope call, not an
-   engineering one.
-
-No other Release blocker (per `RELEASE_BLOCKING_ASSESSMENT.md`'s Prioritized Release Blocking
-Matrix) has its Engineering Gate open on currently-held evidence: #3/#7 require operator-side
-actions (live network credentials; a configured git remote) this session cannot perform; #1/#2/#4
-are already resolved; jumping ahead to Sprint 5/Production-only items would violate the
-Dependency Collapse Policy while Release blockers remain open above them.
+**Waiting for Operator** — one remaining item, not generic: a scope decision among the three
+named paths for RB-6's deferred real-inference E2E test (larger synthetic fixture corpus /
+test-scoped smaller UMAP-HDBSCAN config / defer to Blocker #3's real data). No verification
+command exists for this item because it is a decision, not a missing measurement. Every other
+Release blocker is either resolved (#1, #2, #4, #6) or gated on an operator-only action this
+session cannot perform (#3, #7).
