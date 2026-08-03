@@ -96,7 +96,21 @@ def configure(
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
         logger_factory=structlog.stdlib.LoggerFactory(),
-        cache_logger_on_first_use=True,
+        # False, not True: this codebase's module-level `_log = get_logger(__name__)`
+        # convention (ADR-P2-003) means each module's logger proxy is created exactly
+        # once, at import time, and reused for the life of the process. With caching
+        # enabled, that proxy resolves and freezes its processor chain on its *first*
+        # log call and never re-resolves -- so `structlog.testing.capture_logs()`
+        # (which works by temporarily swapping the global processor chain) silently
+        # fails to intercept anything from a logger whose first use happened earlier,
+        # outside its own capture_logs() block. Confirmed via evidence, not assumption:
+        # tests/unit/test_collect/test_comments.py and test_videos.py's capture_logs()
+        # assertions passed in isolation but failed only when run inside the full
+        # suite, exactly the order-dependent signature this setting produces. The
+        # performance benefit of caching is negligible at this codebase's log volume;
+        # test observability (and the correctness guarantee of "config changes always
+        # take effect") is worth more here.
+        cache_logger_on_first_use=False,
     )
 
     # Stdlib configuration for interop with libraries that log via stdlib.

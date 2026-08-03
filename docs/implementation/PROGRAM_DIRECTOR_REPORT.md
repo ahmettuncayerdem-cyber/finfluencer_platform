@@ -519,6 +519,63 @@ outcome for that bar. These 4 failures are new, separate open items, not a reope
 No engineering performed this delta — evidence collection and hypothesis framing only. No
 architecture, governance, or ADR change.
 
+## New Finding — Isolation Re-runs Confirm Hypothesis; `structlog` Root Cause Diagnosed and Fixed (2026-08-03)
+
+Operator ran both requested isolation commands:
+
+- `poetry run pytest tests/integration/test_t013_interruption_and_resume.py -q` → **2 passed**
+  (visible: two dots, `[100%]`, no failure section). T-013's `SIGKILL` test passes cleanly alone.
+- `poetry run pytest tests/unit/test_collect/test_comments.py tests/unit/test_collect/test_videos.py -q`
+  → coverage gate failed (`12.27%` — expected and irrelevant when running 2 of ~250+ files), but
+  **no `FAILED` lines appear** — all individual tests passed.
+
+**Both isolation runs confirm the full-suite-only hypothesis.** Per the Engineering Gate's own
+"no cheaper evidence-first alternative" test, the next cheapest step was direct code reading (no
+operator round-trip needed) rather than another blind re-run.
+
+**Root cause found, `src/finfluencer/core/logging.py`:** `configure()` calls
+`structlog.configure(..., cache_logger_on_first_use=True)`. This codebase's own documented
+convention (ADR-P2-003, `core/logging.py`'s own docstring) is a module-level
+`_log = get_logger(__name__)` singleton per module, created once at import time and reused for
+the process lifetime. With caching enabled, that logger proxy resolves and **freezes** its
+processor chain on its *first* log call, and never re-resolves — so `structlog.testing.
+capture_logs()` (which works by temporarily swapping the global processor chain) silently misses
+anything from a logger whose first use happened earlier, outside its own `capture_logs()` block.
+In the full suite, some earlier test exercises `finfluencer.collect.comments`'/`videos`'s logger
+before the specific test in question enters its `capture_logs()` context, permanently freezing it
+onto the non-capturing chain for the rest of the process. In isolation, no such earlier consumer
+exists, so it happens to resolve inside the correct `capture_logs()` block. This is a documented
+`structlog` caveat, not a novel mechanism — matches the observed symptom exactly, not a
+speculative-then-confirmed guess.
+
+**Engineering Gate:** satisfied — genuinely a code problem, upstream resolved, evidence now
+conclusive (exact mechanism identified, not just correlated), no cheaper alternative remained
+(already used the cheapest one: reading the code myself instead of asking for more re-runs).
+
+**Fix:** `cache_logger_on_first_use=True` → `False` in `configure()`, one line, with an inline
+comment recording the reasoning above for future readers. Not a Shared Core change (`core/
+logging.py` is not on the Shared Core list — `collect/`, `providers/platform/`, `preprocess/`,
+`embeddings/`, `topics/`, `sentiment/`, `reporting/master_table.py` and its statistical/manuscript
+modules — no Research/Product impact assessment required). Verified: `py_compile` clean; `ruff
+check --config pyproject.toml` — 4 pre-existing findings unchanged (import sort, 2×`global`
+statement, `__all__` sort), none on touched lines, 0 new findings.
+
+**`test_t013`'s `TimeoutError` — separate, still open, not fixed this delta.** Passing cleanly in
+isolation but timing out only inside the full suite is consistent with resource contention under
+load (many tests, real subprocesses, real disk I/O competing for the same machine), but this
+session has only one full-suite data point showing the timeout — not enough evidence to confirm
+it's systematic rather than a one-off blip, and not enough to justify guessing a specific fix
+(e.g., raising `_POLL_TIMEOUT_SECONDS`) without knowing whether it would even address the cause.
+Deferred, pending a fresh full-suite re-run (see below) — if it recurs, that's the trigger to
+investigate further; if not, no action needed.
+
+**Commit:** `[pending]`
+
+**Next required evidence:** a fresh **full-suite** `poetry run pytest -q` re-run, to confirm (a)
+the 3 `capture_logs()` failures are gone, and (b) whether `test_t013`'s `TimeoutError` recurs.
+
+No architecture, governance, or ADR change.
+
 ## Executive Decision
 
 **Waiting for Operator**
