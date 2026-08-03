@@ -453,6 +453,72 @@ itself.
 
 No engineering performed this delta (synthesis only). No architecture, governance, or ADR change.
 
+## New Finding — Fresh `pytest -q` Re-run: `SIGKILL` Fix Confirmed, 4 New Failures Surfaced (2026-08-03)
+
+Operator supplied a genuinely fresh re-run (post `10d0ad5`/`b26a438`, distinct terminal session,
+new PID/session-id paths). Literal short-summary result: **4 failed**, coverage still `91.48%`,
+gate still passed.
+
+**`SIGKILL` fix outcome: confirmed working, but incompletely — read carefully.**
+
+- `test_t017_live_interruption.py`'s `SIGKILL` test: **not in the failure list — passes.**
+  `AttributeError` is gone.
+- `test_t013_interruption_and_resume.py`'s `SIGKILL` test: **AttributeError is also gone** (the
+  fix works — no more `signal.SIGKILL` crash), but it now fails **earlier**, with a
+  **`TimeoutError`**: `_wait_for_record_count(channels_records, 2, _POLL_TIMEOUT_SECONDS)` never
+  saw 2 checkpoint records within 10s, so the test never even reaches the `proc.kill()` line this
+  session's fix touched. Not evidence the fix is wrong — evidence of a **different, likely timing/
+  flakiness issue**, masked until now because the `AttributeError` always fired first.
+
+**3 new, previously-unseen failures — none related to the `SIGKILL` fix:**
+
+- `tests/unit/test_collect/test_comments.py::TestOneInvalidVideoInBatchDoesNotAbortTheRest::test_middle_video_404_skipped_others_still_collected`
+- `tests/unit/test_collect/test_videos.py::TestQuotaMismatchLogging::test_skewed_months_trigger_mismatch_warning`
+- `tests/unit/test_collect/test_videos.py::TestIndexCollisionLogging::test_out_of_contract_rng_triggers_collision_warning`
+
+All three share one exact pattern: `structlog.testing.capture_logs()` returns an **empty** list,
+while the literal captured pytest log output on the same page shows the expected log line **was**
+emitted (e.g. `ERROR ... 'event': 'video_not_found' ...` and `WARNING ...
+'event': 'month_stratified_sample_quota_mismatch' ...` both visible in the raw log capture).
+The log fires; `capture_logs()` just isn't catching it.
+
+**Working hypothesis, not yet confirmed (Evidence Policy — this is a hypothesis, not a finding
+until tested):** none of these 3 files appeared in the previous run's failures either, and none
+were among the 12 collection-error files before the `poetry.lock` fix. The most likely explanation
+is that this is the **first time this session** the full suite (including the previously
+uncollectable `test_api/`/`test_application/` files) has run **together, in one process** — if
+some earlier-running test configures global `structlog` processors (e.g. via `bootstrap.py` or a
+FastAPI `TestClient` app construction) without resetting them, later tests relying on
+`capture_logs()` could lose capture ability. This is a **test-isolation/global-state hypothesis**,
+not confirmed — could equally be something else entirely.
+
+**Engineering Gate: not yet evaluated for these 3 — insufficient evidence to know if this is even
+reproducible, let alone what the fix is.** Per Evidence Policy and the Tenth Principle ("what
+evidence could be collected instead?"), the cheapest next step is **isolation re-runs**, not a
+guessed fix:
+
+```
+poetry run pytest tests/integration/test_t013_interruption_and_resume.py -q
+poetry run pytest tests/unit/test_collect/test_comments.py tests/unit/test_collect/test_videos.py -q
+```
+
+If these pass in isolation, that confirms the full-suite-only / state-leak hypothesis and narrows
+where to look. If they still fail in isolation, that rules the hypothesis out and points elsewhere
+entirely — either way, cheaper and more informative than guessing now.
+
+**Not evidence:** the final screenshot shows `import torch` typed directly at a PowerShell
+prompt, which fails with `CommandNotFoundException` — this is a shell-usage artifact (PowerShell
+doesn't parse Python syntax), not a new finding about `torch`. The earlier, correctly-formed
+`poetry run python -c "import torch, ...; print(torch.__version__)"` → `2.8.0+cpu` result already
+on record stands unchanged and uncontradicted.
+
+**`#1` status: unaffected, remains Resolved** — its own bar ("run the full suite, record the
+pass/fail count, whatever it is") is fully met; a non-zero failure count was always an acceptable
+outcome for that bar. These 4 failures are new, separate open items, not a reopening of `#1`.
+
+No engineering performed this delta — evidence collection and hypothesis framing only. No
+architecture, governance, or ADR change.
+
 ## Executive Decision
 
 **Waiting for Operator**
