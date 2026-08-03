@@ -729,8 +729,69 @@ correctly-idle 'No Change Session' until the operator provides it."
 
 No architecture, governance, or ADR change. Frozen architecture list unmodified.
 
+## New Finding — RB-6's Deferred E2E Test Is Not Viable Against Current Fixture Data (2026-08-04)
+
+**Trigger.** Operator independently re-verified the IG-001 search (confirmed, no discrepancy —
+see prior delta) and directed recomputing program state from verified evidence rather than
+defaulting to "Waiting for Operator," with an explicit exception: staying out of Release
+Engineering is only justified if a specific missing evidence item can be named for the current
+task. Investigated whether the RB-6 report's own "Deferred Work" item (an end-to-end test driving
+`RealTopicsAnalysisEngine`/`RealSentimentAnalysisEngine` through *real* inference, not fakes) was
+immediately actionable, before writing it blind.
+
+**Finding, confirmed by reading the actual files, not assumed:**
+- `FixtureCollectionProvider` produces exactly **8 comment rows** per `CollectionRun`
+  (`infrastructure/collection/fixture_data.py`'s `COMMENTS_BY_VIDEO`: 4 analysts x 1 video x 2
+  comments; independently confirmed by `BACKLOG.md`'s own "8 comments" fixture-total note).
+- `config/settings.yaml`'s real, production topics config: UMAP `n_neighbors: 15`, HDBSCAN
+  `min_cluster_size: 15`, `min_samples: 5`.
+- `umap-learn` hard-errors (not a silent degrade) when `n_neighbors >= n_samples`. 15 >= 8. A real
+  end-to-end run of `RealTopicsAnalysisEngine` against the Walking Skeleton's own fixture data,
+  using the actual production config, would fail at the UMAP fit step before HDBSCAN is ever
+  reached — regardless of whether RB-6's own code is correct. `infrastructure/analysis/
+  CONTEXT_PACK.md`'s own "Known technical debt" section already flagged that this stack has never
+  been run for real anywhere in this engagement; this pass quantifies exactly why a naive attempt
+  would fail, and confirms (via full-repo grep across `docs/implementation/*.md` and every
+  `CONTEXT_PACK*.md`) that this specific row-count-vs.-hyperparameter conflict had not been
+  analyzed anywhere before now.
+
+**Classification:** not a code defect in RB-6's implementation — a pre-existing, structural
+mismatch between Sprint 0's deliberately minimal fixture data (`bootstrap.py`'s own docstring:
+"no live network... same Sprint 0 scope T-010 itself carried") and production-tuned ML
+hyperparameters. Writing the deferred E2E test now, against the fixture as-is, would only prove
+"the real path throws the expected `UMAP` error" — not that the composed pipeline works, and not
+useful evidence either way.
+
+**Engineering Gate: not opened.** This is a scope/data decision, not something resolvable by
+writing more code unilaterally. Three concrete paths exist, none of which this session should
+pick alone (mirrors RB-6's own "do not introduce speculative work the operator hasn't scoped"
+discipline):
+1. Build a larger synthetic fixture corpus sized for the real UMAP/HDBSCAN config (new
+   engineering, but a scope decision — how large, and whether synthetic data is appropriate
+   evidence for this Research platform's own methodology — is the operator's to make, not mine).
+2. A test-scoped config override (smaller `n_neighbors`/`min_cluster_size`, documented as
+   non-representative of production behavior) — cheaper, but weaker evidence; also an operator
+   scope call.
+3. Defer entirely until Release Blocker #3 (live YouTube collection, downstream of ENV-02)
+   produces genuinely large real data, making this fixture-size question moot.
+
+**This is the specific missing decision item for RB-6's/#5's remaining execution-level gap** —
+named precisely, not a generic "more evidence needed" placeholder.
+
+No engineering performed this delta (investigation only, no files under `src/`/`tests/` touched).
+No architecture, governance, or ADR change.
+
 ## Executive Decision
 
-**Waiting for Operator** — Release Blocker #6 implementation complete and committed
-(`0d91cb1`); next required evidence is a real-environment full-suite `poetry run pytest -q`
-re-run to confirm this sandbox's validation reproduces on the operator's machine.
+**Waiting for Operator** — two independent, specific items, neither generic:
+1. A real-environment full-suite `poetry run pytest -q` re-run (post-`0d91cb1`) to confirm this
+   sandbox's RB-6 validation (1118 passed/1 skipped) reproduces on the operator's machine.
+2. A scope decision among the three paths above for RB-6's deferred real-inference E2E test —
+   this session will not pick one unilaterally; it is a data-methodology/scope call, not an
+   engineering one.
+
+No other Release blocker (per `RELEASE_BLOCKING_ASSESSMENT.md`'s Prioritized Release Blocking
+Matrix) has its Engineering Gate open on currently-held evidence: #3/#7 require operator-side
+actions (live network credentials; a configured git remote) this session cannot perform; #1/#2/#4
+are already resolved; jumping ahead to Sprint 5/Production-only items would violate the
+Dependency Collapse Policy while Release blockers remain open above them.
