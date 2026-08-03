@@ -1,4 +1,4 @@
-# Context Pack — Analysis Engine Infrastructure Adapter (Topics)
+# Context Pack — Analysis Engine Infrastructure Adapter (Topics + Embeddings)
 
 Full workflow: `IMPLEMENTATION_PLAYBOOK.md` Part B.2.
 
@@ -43,12 +43,31 @@ that command's Application-layer implementation will depend on, not the command 
   -- **Wrapper required** (`IMPLEMENTATION_ROADMAP.md` §3's Analysis Engine row). Called
   unmodified; zero lines changed in either file by T-019.
 - **`embeddings_index_path` is caller-supplied, not derived.** `run_topics()` already requires it
-  as a parameter; no task in this backlog wraps `finfluencer.embeddings.pipeline` yet. This
-  adapter takes it as a required constructor argument, same as the legacy function already did.
-  Wrapping the embeddings stage as its own Infrastructure adapter is a separate, not-yet-ticketed
-  concern -- flagged here explicitly, not silently assumed away. Revisit trigger: the first task
-  that needs to *generate* embeddings rather than consume an already-produced
-  `embeddings_index.parquet` (a fixture, in every test so far).
+  as a parameter. `TopicsAnalysisAdapter` itself is unchanged by the item below -- it still takes
+  the path as a required constructor argument; something upstream of it is now expected to supply
+  one for real.
+- **`EmbeddingsEngineAdapter` (Release Blocker #4, `RELEASE_BLOCKING_ASSESSMENT.md` item #4,
+  resolved 2026-08-03) wraps `finfluencer.embeddings.pipeline.run_embeddings` +
+  `finfluencer.embeddings.sentence_transformer.SentenceTransformerProvider`, both unmodified** --
+  `IMPLEMENTATION_ROADMAP.md` section 3's own reuse table already classified `embeddings/` under
+  this same row, "Wrapper required," from the start of this engagement. Deliberately does **not**
+  implement `IAnalysisEngine` (see the adapter's own class docstring: no `AnalysisType` named
+  "embeddings" exists, nothing cites `embeddings_index.parquet` from a `Report`, section 11.2
+  names no matching command -- reusing that Protocol would have been a speculative-interface
+  shortcut, not a genuine fit). Isolates output **per-`collection_run_id`, not
+  per-`analysis_run_id`** -- a deliberate divergence from `TopicsAnalysisAdapter`/
+  `SentimentAnalysisAdapter`'s own pattern, since embeddings are a property of the collected
+  comments themselves and must stay shared/cached across however many topic-analysis attempts run
+  against the same `CollectionRun`, not recomputed per attempt.
+- **Still open after this adapter: a real end-to-end topic-analysis run has one more missing
+  link.** `run_topics()`/`run_embeddings()` both require `comments.parquet.text_clean`, populated
+  only by `finfluencer.preprocess.pipeline` -- confirmed this pass that `collect/comments.py`
+  writes no such column, and no Infrastructure adapter wraps `preprocess/` yet.
+  `IMPLEMENTATION_ROADMAP.md` section 3 classifies `preprocess/` **"Adaptation required"** (not
+  "Wrapper required" -- `financial_tr.py`'s vertical-specific coupling, Roadmap Risk R-6), a
+  materially different and larger task, correctly out of this adapter's own scope. Revisit
+  trigger: the task that wires a real (non-demo) `TopicsAnalysisAdapter` behind `StartAnalysisRun`
+  (Release Blocker #6).
 - **`comments_path` resolution reuses T-010's existing directory convention**
   (`base_root / collection_run_id / "data_raw" / "comments.parquet"`) rather than inventing a new
   one -- this is the exact path `CollectionEngineAdapter` already writes to.
@@ -66,9 +85,13 @@ that command's Application-layer implementation will depend on, not the command 
   injects a fake `runner_factory`/`model_loader`, per `bertopic_runner.py`'s own lazy-import
   design. Revisit trigger: the first task that needs to prove a real BERTopic fit runs correctly
   end to end (analogous to T-015's live-network smoke test for Collection).
-- **Embeddings-generation wrapping does not exist yet** (see Integration decisions above) --
-  revisit when a task needs to produce `embeddings_index.parquet` from raw collected comments
-  rather than consume a pre-existing one.
+- **Preprocessing wrapping does not exist yet** (see Integration decisions above) -- real
+  collected `comments.parquet` has no `text_clean` column until `preprocess/` is wrapped, so
+  `EmbeddingsEngineAdapter`/`TopicsAnalysisAdapter` remain fixture-provable but not yet
+  real-data-provable end to end.
+- `EmbeddingsEngineAdapter` inherits the same "no real, compute-backed run exercised in this
+  sandbox" debt as `TopicsAnalysisAdapter` -- `sentence_transformers`/`torch` are declared but not
+  installed here; every test injects a fake `EmbeddingProvider`.
 - **`AnalysisRun`/`CollectionRun` pinning is convention, not enforced by this adapter.** T-020's
   orchestrator is expected to pass a real `AnalysisRun.collection_run_id`; this adapter accepts
   any non-empty string, same permissiveness `CollectionEngineAdapter` already has for `run_id`.
