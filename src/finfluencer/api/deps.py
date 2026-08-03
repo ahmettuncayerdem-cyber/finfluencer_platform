@@ -10,6 +10,7 @@ Infrastructure/Persistence object itself; it only type-hints against
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import Request
 
@@ -34,7 +35,26 @@ def get_start_collection_run_orchestrator(request: Request) -> StartCollectionRu
 
 
 def get_start_analysis_run_orchestrator(request: Request) -> StartAnalysisRunOrchestrator:
+    """Unchanged since T-028: the single demo-wired orchestrator, still the fallback for any
+    `analysis_type_id` that doesn't match one of the two well-known ids below (Release Blocker
+    #6; see `bootstrap.py`'s module docstring).
+    """
     return request.app.state.start_analysis_run_orchestrator  # type: ignore[no-any-return]
+
+
+def get_analysis_run_orchestrators_by_type(
+    request: Request,
+) -> dict[UUID, StartAnalysisRunOrchestrator]:
+    """Release Blocker #6: the two fixed `AnalysisType` ids `bootstrap.py` mints
+    (`TOPIC_MODELING_ANALYSIS_TYPE_ID`/`SENTIMENT_ANALYSIS_TYPE_ID`), mapped to real, non-demo
+    `StartAnalysisRunOrchestrator` instances. Deliberately a plain dict, not a repository/catalog
+    -- same in-memory "stand-in" discipline every other object in this module already follows.
+    `api/routes/analysis.py` looks a request's `analysis_type_id` up here first and falls back to
+    `get_start_analysis_run_orchestrator`'s demo-wired instance for anything not in this dict; an
+    unrecognized id is never an error (`analysis_type_id` stays "trusted as given," same
+    permissiveness `StartAnalysisRunOrchestrator` itself already documents).
+    """
+    return request.app.state.analysis_run_orchestrators_by_type  # type: ignore[no-any-return]
 
 
 def get_generate_report_orchestrator(request: Request) -> GenerateReportOrchestrator:

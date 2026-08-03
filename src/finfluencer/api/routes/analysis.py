@@ -14,6 +14,19 @@ Same deliberate, flagged deviation from section 11.2's literal "asynchronous" co
 `collection.py` already documents for `StartCollectionRun`: `StartAnalysisRunOrchestrator`
 (T-020) runs synchronously to completion today, so this route returns the full current-state
 shape (`AnalysisRunStarted`) rather than a narrower "queued" acceptance shape.
+
+**Release Blocker #6 dispatch.** This route now looks `request.analysis_type_id` up in
+`get_analysis_run_orchestrators_by_type`'s dict (two fixed ids `bootstrap.py` mints, mapped to
+real, non-demo orchestrators) and falls back to `get_start_analysis_run_orchestrator`'s original
+demo-wired instance for anything not an exact match. No request/response schema change, no new
+body parameter -- both are plain `Request`-only FastAPI dependencies, resolved after
+`StartAnalysisRunRequest` is already parsed. `analysis_type_id` is still never validated or
+rejected here (still "trusted as given," per `StartAnalysisRunOrchestrator`'s own docstring) --
+this is a permissive lookup with a fallback, not a new validation gate. See `bootstrap.py`'s
+module docstring for why: rejecting unrecognized ids was the original plan (Readiness Review
+section 5.3) until reading this route's own existing T-028 tests -- which send random UUIDs and
+expect 200 -- surfaced that `analysis_type_id` being untrusted is an established, repeated
+pattern (`StartAnalysisRunOrchestrator`, `ResultSnapshotAdapter`), not a gap to close.
 """
 
 from __future__ import annotations
@@ -22,7 +35,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from finfluencer.api.deps import get_start_analysis_run_orchestrator
+from finfluencer.api.deps import (
+    get_analysis_run_orchestrators_by_type,
+    get_start_analysis_run_orchestrator,
+)
 from finfluencer.application.orchestrators import (
     StartAnalysisRunCommand,
     StartAnalysisRunOrchestrator,
@@ -40,7 +56,12 @@ router = APIRouter(tags=["analysis"])
 def start_analysis_run(
     collection_run_id: UUID,
     request: StartAnalysisRunRequest,
-    orchestrator: StartAnalysisRunOrchestrator = Depends(get_start_analysis_run_orchestrator),
+    default_orchestrator: StartAnalysisRunOrchestrator = Depends(
+        get_start_analysis_run_orchestrator,
+    ),
+    orchestrators_by_type: dict[UUID, StartAnalysisRunOrchestrator] = Depends(
+        get_analysis_run_orchestrators_by_type,
+    ),
 ) -> AnalysisRunStarted:
     # Same path/body consistency discipline as `collection.py`'s own `dataset_id` check.
     if collection_run_id != request.collection_run_id:
@@ -60,6 +81,9 @@ def start_analysis_run(
         analysis_type_version=request.analysis_type_version,
         idempotency_key=request.idempotency_key,
     )
+    # Release Blocker #6: permissive dispatch -- an exact match reaches a real engine, anything
+    # else (including every random UUID) reaches the same demo engine this route always used.
+    orchestrator = orchestrators_by_type.get(request.analysis_type_id, default_orchestrator)
     result = orchestrator.execute(command)
     return AnalysisRunStarted(
         id=result.id,

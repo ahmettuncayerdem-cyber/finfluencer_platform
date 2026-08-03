@@ -49,9 +49,24 @@ rather than load a real one even in its own tests. `_DemoTopicAssignmentEngine` 
 already-collected `comments.parquet` and writes a real `topics.parquet` (deterministic topic
 assignment, no ML), in the exact shape `MasterTableExportAdapter`'s own tests fixture -- so every
 downstream Reporting adapter (`ResultSnapshotAdapter`, `MasterTableExportAdapter`,
-`PdfRendererAdapter`) consumes it with zero special-casing, genuinely unmodified. It does **not**
-resolve TD-03/TD-04 (ARB-01's flagged `AnalysisType`-dispatch generalization) -- wired directly,
-not through any new dispatch/registry mechanism.
+`PdfRendererAdapter`) consumes it with zero special-casing, genuinely unmodified.
+
+**Release Blocker #6 adds real dispatch, permissively, without retiring the demo path.** Per the
+accepted resolution to a contradiction found while implementing the original Readiness Review's
+plan (existing T-028 tests, and `StartAnalysisRunOrchestrator`'s/`ResultSnapshotAdapter`'s own
+docstrings, establish that `analysis_type_id` is deliberately "trusted as given" everywhere else
+in this codebase -- rejecting unrecognized ids here would have been a new, unevidenced rule, not
+an extension of one): two fixed, well-known `AnalysisType` ids
+(`TOPIC_MODELING_ANALYSIS_TYPE_ID`/`SENTIMENT_ANALYSIS_TYPE_ID`, below) are minted and mapped, in
+`app.state.analysis_run_orchestrators_by_type`, to two new `StartAnalysisRunOrchestrator`
+instances wired to `RealTopicsAnalysisEngine`/`RealSentimentAnalysisEngine`
+(`infrastructure/analysis/`) instead of the demo engine. `api/routes/analysis.py` looks a
+request's `analysis_type_id` up in that dict and falls back to the original, unchanged
+`app.state.start_analysis_run_orchestrator` (still `_DemoTopicAssignmentEngine`-backed, still
+exactly what it was before this change) for anything not an exact match -- including every
+random UUID T-028's existing tests already send. **Still does not resolve TD-03/TD-04** (ARB-01's
+flagged general `AnalysisType`-dispatch mechanism) -- this is two fixed dict entries, not a
+catalog/repository; a real dispatch mechanism remains deferred, unchanged from ARB-01's review.
 """
 
 from __future__ import annotations
@@ -83,11 +98,16 @@ from finfluencer.core.config import load_settings
 from finfluencer.domain.analysis_engine import AnalysisOutcome
 from finfluencer.domain.entities._common import EntityId
 from finfluencer.domain.entities.analysis_run import AnalysisRun
+from finfluencer.domain.entities.analysis_type import AnalysisType
 from finfluencer.domain.entities.collection_run import CollectionRun
 from finfluencer.domain.entities.export import Export, ExportFormat
 from finfluencer.domain.entities.interpretation_record import InterpretationRecord
 from finfluencer.domain.entities.project import Project
 from finfluencer.domain.entities.report import Report
+from finfluencer.infrastructure.analysis import (
+    RealSentimentAnalysisEngine,
+    RealTopicsAnalysisEngine,
+)
 from finfluencer.infrastructure.collection import (
     CollectionEngineAdapter,
     FixtureCollectionProvider,
@@ -104,6 +124,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_SETTINGS = _REPO_ROOT / "config" / "settings.yaml"
 _DEFAULT_ANALYSTS = _REPO_ROOT / "config" / "analysts.yaml"
 _WEB_INDEX = _REPO_ROOT / "web" / "index.html"
+
+#: Release Blocker #6 -- two fixed, well-known `AnalysisType` ids. Not a catalog/repository (see
+#: module docstring): a caller that sets `analysis_type_id` to exactly one of these two values
+#: reaches a real engine; every other value keeps reaching the demo engine, unchanged.
+TOPIC_MODELING_ANALYSIS_TYPE_ID = EntityId(uuid.UUID("00000000-0000-0000-0000-0000000000a1"))
+SENTIMENT_ANALYSIS_TYPE_ID = EntityId(uuid.UUID("00000000-0000-0000-0000-0000000000a2"))
 
 
 class _InMemoryProjectRepository:
@@ -299,6 +325,17 @@ def create_app(
     export_repository = _InMemoryExportRepository()
 
     demo_analysis_engine = _DemoTopicAssignmentEngine(base_root=base_root)
+    # Release Blocker #6: real engines, reachable only via the two fixed ids above -- the demo
+    # engine above remains the orchestrator wired to `app.state.start_analysis_run_orchestrator`
+    # (unchanged) and the fallback for every `analysis_type_id` that isn't one of these two.
+    real_topics_engine = RealTopicsAnalysisEngine(settings=cfg.settings, base_root=base_root)
+    real_sentiment_engine = RealSentimentAnalysisEngine(settings=cfg.settings, base_root=base_root)
+    topic_modeling_analysis_type = AnalysisType(
+        "topic_modeling", "1.0.0", entity_id=TOPIC_MODELING_ANALYSIS_TYPE_ID,
+    )
+    sentiment_analysis_type = AnalysisType(
+        "sentiment", "1.0.0", entity_id=SENTIMENT_ANALYSIS_TYPE_ID,
+    )
     result_snapshot_reader = ResultSnapshotAdapter(base_root=base_root)
     table_exporter = MasterTableExportAdapter(base_root=base_root)
     pdf_renderer = PdfRendererAdapter()
@@ -321,6 +358,20 @@ def create_app(
         analysis_run_repository=analysis_run_repository,
         analysis_engine=demo_analysis_engine,
     )
+    # Release Blocker #6: real dispatch, permissive by construction (see module docstring). Only
+    # these two exact ids are looked up by `api/routes/analysis.py`; any other `analysis_type_id`
+    # -- including every random UUID T-028's own tests already send -- keeps reaching
+    # `app.state.start_analysis_run_orchestrator` above, unchanged.
+    app.state.analysis_run_orchestrators_by_type = {
+        topic_modeling_analysis_type.id: StartAnalysisRunOrchestrator(
+            analysis_run_repository=analysis_run_repository,
+            analysis_engine=real_topics_engine,
+        ),
+        sentiment_analysis_type.id: StartAnalysisRunOrchestrator(
+            analysis_run_repository=analysis_run_repository,
+            analysis_engine=real_sentiment_engine,
+        ),
+    }
     app.state.generate_report_orchestrator = GenerateReportOrchestrator(
         analysis_run_repository=analysis_run_repository,
         report_repository=report_repository,
@@ -374,4 +425,8 @@ def _new_dataset_id() -> str:
     return str(uuid.uuid4())
 
 
-__all__ = ["create_app"]
+__all__ = [
+    "SENTIMENT_ANALYSIS_TYPE_ID",
+    "TOPIC_MODELING_ANALYSIS_TYPE_ID",
+    "create_app",
+]
