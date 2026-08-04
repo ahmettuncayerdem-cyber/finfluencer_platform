@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -45,6 +46,25 @@ _SETTINGS = _REPO_ROOT / "config" / "settings.yaml"
 _ANALYSTS = _REPO_ROOT / "config" / "analysts.yaml"
 
 runner = CliRunner(mix_stderr=False)
+
+# Rich (Typer's --help renderer) always colours its output, even though
+# CliRunner captures into a non-tty stream. On some platform/Python
+# combinations (observed on every real CI runner -- ubuntu-latest and
+# windows-latest, Python 3.11 and 3.12 -- but not reproducible against
+# matching pinned versions on other machines) Rich emits a style-reset
+# boundary *between* the two leading dashes of a long option, e.g.
+# ``--settings`` renders as ``\x1b[1;36m-\x1b[0m\x1b[1;36m-settings\x1b[0m``:
+# same colour on both sides, but the escape codes interrupt the literal
+# substring "--settings" so a plain `in` check silently fails. This
+# strips ANSI SGR escape sequences before any such membership check, so
+# these assertions test the actual rendered text (does --help mention
+# this option) instead of an accident of which Rich code path merged
+# adjacent same-styled segments on a given platform.
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_ESCAPE_RE.sub("", text)
 
 
 def _set_tmp_output_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -134,8 +154,9 @@ class TestCollectRunCommandPreserved:
     def test_run_help_shows_original_options(self):
         result = runner.invoke(cli_module.app, ["run", "--help"])
         assert result.exit_code == 0
+        output = _strip_ansi(result.output)
         for opt in ("--settings", "--analysts", "--stage", "--dry-run", "--verbose"):
-            assert opt in result.output
+            assert opt in output
 
     def test_run_invalid_stage_exits_2_unchanged(self):
         result = runner.invoke(cli_module.app, ["run", "--stage", "not_a_real_stage"])
@@ -166,8 +187,9 @@ class TestReportingCommandsRegistered:
     def test_help_works_for_each_reporting_command(self, name):
         result = runner.invoke(cli_module.app, [name, "--help"])
         assert result.exit_code == 0
+        output = _strip_ansi(result.output)
         for opt in ("--settings", "--analysts", "--dry-run", "--force", "--verbose", "--json"):
-            assert opt in result.output
+            assert opt in output
 
     @pytest.mark.parametrize("name", ["analyze", "report"])
     def test_invalid_stage_exits_2_for_stage_bearing_commands(self, name):
