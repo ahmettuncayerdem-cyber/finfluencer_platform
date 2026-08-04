@@ -809,11 +809,73 @@ Release blocker's gate opens on currently-held evidence.
 No engineering performed this delta (verification only). No architecture, governance, or ADR
 change.
 
+## Scope Decision Recorded — RB-6 E2E Real-Inference Validation Deferred to Blocker #3 (2026-08-04)
+
+**Operator decision (not an engineering finding):** of the three paths named in the prior delta,
+the operator selected deferral. RB-6's end-to-end real-inference test (`RealTopicsAnalysisEngine`/
+`RealSentimentAnalysisEngine` actually running BERTopic/UMAP/HDBSCAN/sentence-transformers, not
+fakes) will be written against Release Blocker #3's real, live-collected YouTube data once that
+blocker is resolved, not against a synthetically inflated Sprint 0 fixture and not against
+test-only parameter overrides that would misrepresent production behavior. Explicit operator
+rationale, recorded verbatim in intent: no artificial fixture inflation, no test-only parameter
+changes solely to satisfy an isolated test.
+
+**Reclassification:** this is recorded as an intentional scope decision, not an unresolved
+engineering blocker. Item #5's remaining execution-level gap (`RELEASE_BLOCKING_ASSESSMENT.md`'s
+"stack installs and runs for real") is downgraded from "open, gate not satisfiable" to "scoped
+into Blocker #3's own acceptance criteria" — the same dependency (`#5 -> #6`, `#3` independently
+gating live data) `RELEASE_BLOCKING_ASSESSMENT.md`'s Meta Blocker Decomposition already encoded;
+this decision makes that dependency the *only* path, closing the "pick a workaround" branch
+rather than leaving it open. No code changed. No architecture, governance, or ADR change.
+
+**Recomputed Meta Blocker Status, this delta:**
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Full `poetry install --sync` + `pytest`, real env | Resolved |
+| 2 | `torch` Windows DLL pin, mitigated | Resolved (holding) |
+| 3 | Live YouTube collection verified | **Open** — operator action required (live API credentials, real network from operator's machine); now additionally the sole path for #5's execution-level validation and RB-6's deferred E2E test |
+| 4 | Embeddings pipeline wrapped | Resolved |
+| 5 | ML stack installs and runs for real | Import-level: Resolved (real env, `torch==2.8.0+cpu`, confirmed earlier this session). Execution-level: intentionally deferred to #3, not open |
+| 6 | Real dispatch behind `StartAnalysisRun` | Resolved (`0d91cb1`/`a6341dc`/`71472a6`) |
+| 7 | CI on real GitHub Actions | **Open** — operator action required (configure a git remote) |
+
+**Checked for a next actionable engineering task independent of #3, per instruction — none
+found with an open gate.** Reviewed every item below the Release-blocker tier
+(`RELEASE_BLOCKING_ASSESSMENT.md` §1, items 8-34: Sprint 5 prerequisites, Production-only
+prerequisites, Quality improvements, Documentation-only, Cosmetic). None has a fresh evidence
+trigger opening its Engineering Gate right now:
+- Production-only items (#11 roster/`Dataset` granularity, #12 idempotency middleware, #13 CLI
+  `click`/`CliRunner` mismatch, #14 React frontend, #15 query endpoints, #16 async collection
+  contract) are real, evidenced gaps, but `RELEASE_BLOCKING_ASSESSMENT.md`'s own classification
+  places them after every Release blocker, not before — moving to them now without an operator
+  decision to retarget past MVP/T-029 sign-off toward full production readiness would be the same
+  kind of unauthorized scope jump the E2E-test decision just avoided, only one tier up.
+- Item #13 specifically re-checked against this delta's own new evidence: the just-supplied real
+  `poetry run pytest -q` run's warnings summary shows `tests/unit/test_reporting/test_main.py`
+  executed (16 warnings) with no failure, and the overall run had no `FAILURES`/short-summary
+  section — meaning the `click`/`CliRunner` collection error is confirmed sandbox-only, not
+  present in the real environment. Nothing to fix there.
+- `.github/workflows/ci.yml`'s `lint` job is deliberately scoped to
+  `src/finfluencer/reporting`/`cli.py` only ("Sprint 2.7A scoped quality gate," pre-existing,
+  documented policy) — RB-6's new files falling outside that scope is not a gap this delta
+  introduced; the `test` job (full `poetry run pytest`, unscoped) already covers them, confirmed
+  by this delta's own evidence.
+- Quality-improvement/Documentation-only/Cosmetic items (#17-#34) either have no fresh trigger,
+  are explicitly "not a defect" (#21), or are pre-ruled non-blocking by the operator (#17).
+
 ## Executive Decision
 
-**Waiting for Operator** — one remaining item, not generic: a scope decision among the three
-named paths for RB-6's deferred real-inference E2E test (larger synthetic fixture corpus /
-test-scoped smaller UMAP-HDBSCAN config / defer to Blocker #3's real data). No verification
-command exists for this item because it is a decision, not a missing measurement. Every other
-Release blocker is either resolved (#1, #2, #4, #6) or gated on an operator-only action this
-session cannot perform (#3, #7).
+**Waiting for Operator** — every Release blocker is now Resolved (#1, #2, #4, #5-import, #6) or
+gated on exactly one of two named operator-only actions, no others:
+1. **#3** — a live YouTube collection run, real API credentials, from the operator's own real
+   network. This is now also the sole path to RB-6's deferred E2E test and #5's execution-level
+   closure, per this delta's scope decision.
+2. **#7** — a configured git remote, so `.github/workflows/ci.yml` can execute on real GitHub
+   Actions infrastructure at least once.
+
+No engineering task independent of #3 currently has its Engineering Gate open — checked against
+the full remaining backlog this delta, not assumed. This is a legitimate, first-class outcome
+under this engagement's own "No Change Session" doctrine: every Release blocker that pure
+engineering (without a live YouTube API call or a configured remote) could resolve, has been
+resolved this session.
