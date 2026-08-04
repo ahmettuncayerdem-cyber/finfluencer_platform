@@ -363,7 +363,7 @@ def generate_codebook(package_dir: Path) -> dict[str, Any]:
         rel = path.relative_to(package_dir).as_posix()
         try:
             entries[rel] = _describe_file(path)
-        except Exception as exc:  # noqa: BLE001 -- one bad file must not abort the export
+        except Exception as exc:  # one bad file must not abort the export; BLE001 not enabled here
             entries[rel] = {"format": "unknown", "note": f"introspection failed: {type(exc).__name__}"}
     return entries
 

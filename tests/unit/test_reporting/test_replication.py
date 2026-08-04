@@ -16,11 +16,10 @@ for its own equivalent CLI-level test.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
-
-import json
 
 from finfluencer.core.config import load_settings
 from finfluencer.core.exceptions import ReproducibilityError
