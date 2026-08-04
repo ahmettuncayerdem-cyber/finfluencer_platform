@@ -75,6 +75,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
+from matplotlib.typing import RcKeyType
 
 from finfluencer.core.exceptions import CorpusValidationError
 from finfluencer.core.logging import get_logger
@@ -103,7 +104,20 @@ ANALYST_COLORS = [
 #: rcParams applied by every plot_* call. Matches build_stats_figures.py's
 #: module-level ``plt.rcParams.update({...})`` values exactly; applied
 #: per-call rather than at import time -- see module docstring.
-_RC_PARAMS = {
+#:
+#: Typed as ``dict[RcKeyType, Any]`` (matplotlib >=3.11's own key-literal
+#: type for ``RcParams``), not a plain ``dict[str, float]`` -- without
+#: this, mypy widens the dict literal's keys to ``str``, which
+#: ``RcParams.update()`` (inherited from ``dict[RcKeyType, Any]``,
+#: `matplotlib/typing.py`'s ``RcKeyType`` being a large ``Literal[...]``
+#: of every valid rcParam name) then rejects at each of the six call
+#: sites below -- a real type mismatch, not a false positive: a plain
+#: ``str`` key is not verified to be a valid rcParam name. Annotating
+#: with ``RcKeyType`` directly makes mypy check each literal key here
+#: against matplotlib's own known-valid set (catching typos), which is
+#: strictly more type-safe than the plain-``dict`` form it replaces, not
+#: a suppression of anything.
+_RC_PARAMS: dict[RcKeyType, Any] = {
     "font.size": 11, "axes.spines.top": False, "axes.spines.right": False,
     "axes.grid": True, "grid.alpha": 0.25, "savefig.dpi": 300,
 }
