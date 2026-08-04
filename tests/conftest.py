@@ -45,7 +45,22 @@ def pytest_configure(config: pytest.Config) -> None:
     switch may not take effect. That is a sequencing anomaly, not a
     guaranteed failure, so it is surfaced as a warning rather than aborting
     the session -- see PE-03 Phase 4/5 risk assessment.
+
+    This hook is a no-op when ``matplotlib`` is not installed at all --
+    e.g. CI's "Layer Dependency Conformance (IG-001)" job (``ci.yml``),
+    which deliberately runs a stdlib-only ``pytest`` invocation (``pip
+    install pytest`` only, no ``poetry install --sync``) so it doesn't
+    share the lint/test jobs' dependency-stack failure modes. No test
+    collected in that job imports ``matplotlib.pyplot`` either, so there
+    is no backend to fix -- failing pytest startup there would be
+    enforcing a dependency this hook's own job doesn't need, not
+    protecting anything.
     """
+    try:
+        import matplotlib
+    except ModuleNotFoundError:
+        return
+
     if "matplotlib.pyplot" in sys.modules:
         warnings.warn(
             "matplotlib.pyplot was already imported before "
@@ -57,8 +72,6 @@ def pytest_configure(config: pytest.Config) -> None:
             "imported matplotlib.pyplot first.",
             stacklevel=2,
         )
-
-    import matplotlib
 
     matplotlib.use("Agg")
 
