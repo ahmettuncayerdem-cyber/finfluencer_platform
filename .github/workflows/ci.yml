@@ -111,14 +111,28 @@ jobs:
         # test_cli.py::TestReportingCommandsRegistered::
         # test_help_works_for_each_reporting_command through the log UI
         # alone. A downloaded artifact file has no such truncation.
+        #
+        # NOTE (fix): the previous version of this step used a folded (">")
+        # multi-line `python -c "..."` block. YAML's folded scalar joins
+        # continuation lines with a single space, which left a leading
+        # space before `from typer.testing import CliRunner` in the
+        # resulting one-line string -- `python -c` compiles that string as
+        # a module, and a module's first statement can't be indented, so
+        # every leg failed immediately with IndentationError before
+        # writing anything. Writing the script to a real file via a
+        # heredoc (quoted delimiter -- no shell expansion inside) sidesteps
+        # shell-quoting and YAML-folding entirely, and behaves identically
+        # on ubuntu-latest and windows-latest (both run this step under
+        # Git Bash because of `shell: bash`).
         shell: bash
-        run: >
-          poetry run python -c "
-          from typer.testing import CliRunner;
-          import finfluencer.cli as m;
-          r = CliRunner(mix_stderr=False).invoke(m.app, ['report', '--help']);
-          open('cli_help_debug.txt', 'w', encoding='utf-8').write(repr(r.output))
-          "
+        run: |
+          cat > cli_help_debug.py <<'PY'
+          from typer.testing import CliRunner
+          import finfluencer.cli as m
+          r = CliRunner(mix_stderr=False).invoke(m.app, ["report", "--help"])
+          open("cli_help_debug.txt", "w", encoding="utf-8").write(repr(r.output))
+          PY
+          poetry run python cli_help_debug.py
 
       - name: Upload debug artifact (temporary, TEMP-DEBUG-CLI)
         if: always()
