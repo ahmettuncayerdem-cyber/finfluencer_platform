@@ -1024,3 +1024,80 @@ tier. Per the standing active-guidance instruction, the next Program Director ta
 Blocker #3's concrete, ordered operator steps (live YouTube API credentials, real collection run,
 real `AnalysisRun` dispatch through the now-verified real dependency stack, and the deferred RB-6
 E2E validation against real-scale data).
+
+---
+
+## Delta — Release Blocker #3 Resolved: Both Live-Network Halves (T-015/T-017) Verified (2026-08-05)
+
+**Trigger:** operator ran both previously environment-blocked live-network scripts on their own
+real machine with real credentials and real network egress, per this delta's guided task
+sequence.
+
+**T-015 (`scripts/t015_live_smoke_test.py`), literal evidence:** real collection against
+`config/analysts.yaml`'s pilot analyst `satiroglu` completed cleanly —
+`CollectionOutcome(run_id='t015-live-smoke', stage_row_counts={'channels': 1, 'videos': 303,
+'comments': 16868, 'transcripts': 100})`, `Quota remaining: 9604`. Transcript-stage warnings (68
+`fetch_error`, 32 `transcript_disabled`) are expected, documented YouTube-side conditions (many
+videos have captions disabled or transient fetch failures), not defects.
+
+**T-017 (`scripts/t017_live_interruption_manual.py`), literal evidence:** real subprocess launched
+against the live, unstubbed provider; `Worker returncode: 1` (Windows' non-zero-on-kill signature,
+as the script's own code documents); checkpoint inspection confirmed the kill landed exactly
+between stages (`collect_channels.done exists: True`, `collect_videos.done exists: False`);
+resumed cleanly through `StartCollectionRunOrchestrator` (T-011); **`Final status: completed`**,
+**`Final row counts: {'channels': 1, 'videos': 303, 'comments': 16868, 'transcripts': 100}`** —
+identical to T-015's uninterrupted run, proving no data loss and no duplication across a real
+`SIGKILL`-equivalent interruption on real, variable-timing network I/O. `Quota remaining: 9605`.
+
+**Process note, recorded for completeness:** mid-sequence, the operator's real `YT_API_KEY` value
+was visible in cleartext in a screenshot shared in this session (a PowerShell command echoing the
+literal placeholder text back with the real key substituted). Flagged to the operator in-session
+with a recommendation to rotate the key via Google Cloud Console as standard hygiene; no action
+taken on my end since credential rotation is the operator's own account action, not a repository
+change.
+
+**Secondary finding, not yet acted on (non-blocking):** `.env`/`.env.example` document `YT_API_KEY`/
+`ANON_SALT` as the expected configuration mechanism, but no code path in this repository calls
+`python-dotenv`'s `load_dotenv()` — `.env` is never actually read; only real process-environment
+variables are. `python-dotenv` is a declared dependency (`pyproject.toml`/`poetry.lock`) that is
+effectively dead weight today. Both live scripts were unblocked by setting `$env:YT_API_KEY`/
+`$env:ANON_SALT` directly in the PowerShell session instead. Not a Release blocker (a documented,
+working alternative exists), but worth a future low-priority ticket: either wire `load_dotenv()`
+in at process startup, or remove `.env.example`'s implication that dropping values into `.env` is
+sufficient.
+
+**Engineering Gate:** N/A — this delta is a verification/operator-action item, not an engineering
+task; both scripts were already fully implemented and tested (T-015/T-017 "IMPLEMENTATION CLOSED"
+since 2026-08-01). No code changed.
+
+**Executive Decision — Release Blocker #3 is Resolved.**
+
+**Recomputed Meta Blocker Status — every Release blocker is now Resolved:**
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Full `poetry install --sync` + `pytest`, real env | Resolved |
+| 2 | `torch` Windows DLL pin, mitigated | Resolved (holding) |
+| 3 | Live YouTube collection verified | **Resolved** — T-015 + T-017 both confirmed live, this delta |
+| 4 | Embeddings pipeline wrapped | Resolved |
+| 5 | ML stack installs and runs for real | Resolved — import-level confirmed earlier this session; execution-level now also implicitly exercised by this delta's real collection + T-017's real adapter chain |
+| 6 | Real dispatch behind `StartAnalysisRun` | Resolved |
+| 7 | CI on real GitHub Actions | Resolved |
+
+**All seven Release blockers from `RELEASE_BLOCKING_ASSESSMENT.md` are now Resolved.** This is a
+first-class milestone for this engagement, not an automatic MVP declaration — `BACKLOG.md`'s
+T-029 (the actual MVP acceptance gate) still has its own, separate, undischarged acceptance
+criterion: **"a researcher creates a Project, collects real YouTube data, runs topic *and*
+sentiment analysis, views and exports a Report citing raw snapshots"**, performed once, live, by
+the operator (`Role: Human sign-off`). T-029's own recorded blockers as of 2026-08-03 were: (1)
+real YouTube collection — now resolved by this delta; (2) `StartAnalysisRun` only reaching the
+demo engine — resolved earlier this session by Release Blocker #6's real dispatch; (3) the human
+run itself — still outstanding, not something any engineering session can discharge on the
+operator's behalf.
+
+**What becomes actionable next:** T-029's live MVP sign-off run — walking the real, running
+application (not scripts) through: create a Project, start a live `CollectionRun` against a real
+analyst, dispatch a real `AnalysisRun` against both `TOPIC_MODELING_ANALYSIS_TYPE_ID` and
+`SENTIMENT_ANALYSIS_TYPE_ID` (Release Blocker #6's two real-engine ids), generate and view a
+Report, and export it — confirming the citations trace to raw snapshots with no AI call anywhere
+in the path. This is the single remaining gate before MVP can be declared.
