@@ -101,6 +101,33 @@ jobs:
       - name: Install dependencies from poetry.lock
         run: poetry install --sync
 
+      - name: Debug -- capture raw CliRunner output (temporary, TEMP-DEBUG-CLI)
+        # Diagnostic only, to be removed once root-caused: writes the
+        # unmodified, untruncated repr() of `report --help`'s captured
+        # output to a file artifact. The GitHub Actions log viewer
+        # word-wraps and truncates long assertion diffs (observed
+        # mid-string "..." on every platform/version leg), which has made
+        # it impossible to read the actual failing text of
+        # test_cli.py::TestReportingCommandsRegistered::
+        # test_help_works_for_each_reporting_command through the log UI
+        # alone. A downloaded artifact file has no such truncation.
+        shell: bash
+        run: >
+          poetry run python -c "
+          from typer.testing import CliRunner;
+          import finfluencer.cli as m;
+          r = CliRunner(mix_stderr=False).invoke(m.app, ['report', '--help']);
+          open('cli_help_debug.txt', 'w', encoding='utf-8').write(repr(r.output))
+          "
+
+      - name: Upload debug artifact (temporary, TEMP-DEBUG-CLI)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-help-debug-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: cli_help_debug.txt
+          if-no-files-found: warn
+
       - name: Run test suite
         # pyproject.toml's own [tool.pytest.ini_options] addopts already configure
         # --cov=finfluencer --cov-report=term-missing --cov-report=html:htmlcov
