@@ -1101,3 +1101,58 @@ analyst, dispatch a real `AnalysisRun` against both `TOPIC_MODELING_ANALYSIS_TYP
 `SENTIMENT_ANALYSIS_TYPE_ID` (Release Blocker #6's two real-engine ids), generate and view a
 Report, and export it — confirming the citations trace to raw snapshots with no AI call anywhere
 in the path. This is the single remaining gate before MVP can be declared.
+
+---
+
+## Delta — Minimal Engineering Step for T-029's Live Sign-off: Opt-in Live Collection Wiring (2026-08-05)
+
+**Trigger:** designing T-029's concrete next step surfaced a real, evidenced gap:
+`bootstrap.py::create_app()` hardwires `FixtureCollectionProvider()` unconditionally (by design,
+per its own docstring — avoiding accidental quota spend on every dev-page load). This means
+`POST /datasets/{id}/collection-runs` through the real running app always collects fixture data,
+never live data, regardless of `collection_base_root`. T-029's acceptance criterion ("a
+researcher creates a Project, collects real YouTube data...") cannot be satisfied through the
+actual product surface without this being addressed.
+
+**Engineering Gate:** satisfied. Code-related; the gap is directly confirmed by reading
+`bootstrap.py` and `api/routes/collection.py` together (not inferred); the fix reuses
+`build_live_collection_engine` (T-015, already fully tested, already used unmodified by
+`scripts/t015_live_smoke_test.py`/`t017_live_interruption_manual.py`) rather than writing any new
+collection logic; no cheaper alternative exists that keeps T-029's sign-off honestly "through the
+real app" rather than through standalone scripts only.
+
+**Fix:** `create_app()` gained one new, default-`False` keyword parameter, `use_live_collection`.
+When `True`, it constructs the collection engine via `build_live_collection_engine(cfg,
+base_root, transcript_fetcher=None)` instead of `CollectionEngineAdapter(...,
+provider=FixtureCollectionProvider(), ...)` — same pattern Release Blocker #6 already
+established (additive, opt-in, original default completely unchanged). No other line in
+`create_app()` changed. `transcript_fetcher=None` mirrors what T-015's own smoke test already
+does implicitly (falls back to the real transcript fetcher).
+
+**Verified:**
+- `tests/unit/test_bootstrap.py` (4 tests) and `tests/unit/test_api/` (32 tests): all pass
+  unchanged — the new parameter's default preserves every existing behavior exactly.
+- `t029_e2e_verification.py` (the existing fixture-based T-029 script): still 31/31 checks
+  passed, byte-for-byte the same as before this change.
+- IG-001 (`scripts/check_layer_dependencies.py`): clean.
+- `create_app(use_live_collection=True)` construction: confirmed it fails fast with the same
+  `AuthenticationError`/`ProviderConfigurationError` as the existing live scripts when
+  `YT_API_KEY` is absent, and constructs cleanly once a key is present (verified with a
+  structurally-valid dummy key in the sandbox, since a real key/real network call isn't available
+  there — the real call itself is the operator's own next step, same environment-verification
+  split as every other live-network item this session).
+
+**New file:** `t029_live_verification.py` (repo root, alongside the existing
+`t029_e2e_verification.py`) — the live counterpart: same product workflow, but
+`create_app(use_live_collection=True)` and the two Release Blocker #6 real-engine
+`analysis_type_id`s (topics via BERTopic, sentiment via a local transformer classifier — no AI/
+LLM call anywhere in the path). Collects the full configured roster (more representative of real
+usage; quota headroom already confirmed ample by T-015/T-017). Not a pytest test, same rationale
+as the other manual live scripts (real quota, real compute, must never run in CI).
+
+**Repository state changed:** `src/finfluencer/bootstrap.py` (additive), new file
+`t029_live_verification.py`.
+
+**What becomes actionable next:** operator runs `poetry run python t029_live_verification.py`
+with `YT_API_KEY`/`ANON_SALT` set, on their own real machine — the literal T-029 human sign-off
+run.

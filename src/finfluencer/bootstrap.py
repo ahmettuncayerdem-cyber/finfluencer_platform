@@ -111,6 +111,7 @@ from finfluencer.infrastructure.analysis import (
 from finfluencer.infrastructure.collection import (
     CollectionEngineAdapter,
     FixtureCollectionProvider,
+    build_live_collection_engine,
     fixture_transcript_fetcher,
 )
 from finfluencer.infrastructure.reporting import (
@@ -293,6 +294,7 @@ def create_app(
     analysts_path: Path = _DEFAULT_ANALYSTS,
     collection_base_root: Path | None = None,
     anon_salt: str = "sprint0-dev-salt",
+    use_live_collection: bool = False,
 ) -> FastAPI:
     """Build the Walking Skeleton's FastAPI app: wire Sprint 0 stand-ins, construct both
     orchestrators, register routes.
@@ -300,6 +302,15 @@ def create_app(
     `collection_base_root` defaults to a fresh temp directory per call -- there is no
     persistence-layer decision here about where collected data should permanently live; that is
     explicitly out of scope (ADR-0001/Persistence Layer, not yet built).
+
+    `use_live_collection` (T-029 MVP sign-off support, added after Release Blocker #3): opt-in
+    only, default `False` -- the dev page's default wiring stays fixture-backed for exactly the
+    reason this module's docstring already gives (spending real YouTube API quota on every page
+    load would be silently expensive). When `True`, swaps `FixtureCollectionProvider` for
+    `build_live_collection_engine` (T-015, already fully tested) -- reuses the existing,
+    already-tested live wiring unmodified; no new collection logic. Requires a real `YT_API_KEY`
+    in the environment, the same as `scripts/t015_live_smoke_test.py`; raises the same
+    `AuthenticationError` from `YouTubePlatformProvider.__init__` if it's missing.
     """
     cfg = load_settings(settings_path, analysts_path, validate_secrets=False)
     base_root = (
@@ -308,14 +319,19 @@ def create_app(
         else Path(tempfile.mkdtemp(prefix="finfluencer-walking-skeleton-"))
     )
 
-    collection_engine = CollectionEngineAdapter(
-        settings=cfg.settings,
-        roster=cfg.roster,
-        provider=FixtureCollectionProvider(),
-        base_root=base_root,
-        transcript_fetcher=fixture_transcript_fetcher,
-        anon_salt=anon_salt,
-    )
+    if use_live_collection:
+        collection_engine, _live_quota = build_live_collection_engine(
+            cfg, base_root, transcript_fetcher=None,
+        )
+    else:
+        collection_engine = CollectionEngineAdapter(
+            settings=cfg.settings,
+            roster=cfg.roster,
+            provider=FixtureCollectionProvider(),
+            base_root=base_root,
+            transcript_fetcher=fixture_transcript_fetcher,
+            anon_salt=anon_salt,
+        )
 
     project_repository = _InMemoryProjectRepository()
     collection_run_repository = _InMemoryCollectionRunRepository()
