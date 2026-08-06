@@ -172,7 +172,10 @@ sentiment:
     # this pin, silent model updates would silently change sentiment scores
     # between runs — an invisible reproducibility failure.
     # Publication-stage runs REFUSE to start if this reads as placeholder.
-    revision: "REPLACE_WITH_HF_COMMIT_SHA"
+    # Resolved 2026-08-05 (T-029 live sign-off): fetched via
+    # https://huggingface.co/api/models/savasy/bert-base-turkish-sentiment-cased,
+    # its `sha` field -- the Hub's own current commit hash for this model.
+    revision: "f6070864c69990a669bf9b8c659a0093062d73e8"
 
     # Truncation length. 512 is BERT's architectural max. Turkish YouTube
     # comments rarely exceed 200 tokens; 512 wastes no compute due to
@@ -199,7 +202,9 @@ sentiment:
     # Base model that receives a two-head classification layer during
     # fine-tuning on the 400-comment manually annotated subsample.
     base_model: "dbmdz/bert-base-turkish-cased"
-    base_revision: "REPLACE_WITH_HF_COMMIT_SHA"
+    # Resolved 2026-08-05 (T-029 live sign-off): fetched via
+    # https://huggingface.co/api/models/dbmdz/bert-base-turkish-cased, its `sha` field.
+    base_revision: "b6e1de16c983e0f2c70664591ea3f22810072608"
 
     # Both heads share the base encoder.
     heads: ["polarity", "target"]
@@ -224,7 +229,10 @@ topics:
     # by sentiment.primary_model.revision above; see REPRODUCIBILITY
     # CONTRACT point 2 at the top of this file). Publication-stage runs
     # REFUSE to start if this still reads as a placeholder.
-    revision: "REPLACE_WITH_HF_COMMIT_SHA"
+    # Resolved 2026-08-05 (T-029 live sign-off): fetched via
+    # https://huggingface.co/api/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2,
+    # its `sha` field.
+    revision: "e8f8c211226b894fcb81acc59f3b34ba3efd5f42"
 
   # UMAP parameters (Grootendorst 2022 recommended defaults).
   # Reducing n_neighbors captures more local structure; increasing captures

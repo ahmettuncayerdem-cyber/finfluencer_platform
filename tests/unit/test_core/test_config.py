@@ -135,11 +135,16 @@ class TestEnforceStagePolicy:
         return path
 
     def test_publication_stage_with_placeholder_revisions_raises(self, tmp_path):
-        # Real settings.yaml ships with REPLACE_WITH_HF_COMMIT_SHA
-        # placeholders and stage="exploratory"; bumping only the stage
-        # must trigger the publication-stage unpinned-revision gate.
+        # Explicitly inject a placeholder revision rather than relying on the
+        # real settings.yaml shipping with one -- as of T-029's live sign-off
+        # (2026-08-05), the real file's three REPLACE_WITH_HF_COMMIT_SHA
+        # placeholders were filled in with real HuggingFace Hub commit SHAs
+        # (required for real BERTopic/sentiment inference to actually run),
+        # so this test must not depend on that incidental file state to
+        # exercise the publication-stage unpinned-revision gate.
         raw = _load_real_settings_dict()
         raw["replication"]["stage"] = "publication"
+        raw["topics"]["embedding_model"]["revision"] = "REPLACE_WITH_HF_COMMIT_SHA"
         settings_path = self._write_settings(tmp_path, raw)
 
         with pytest.raises(UnpinnedRevisionError):
