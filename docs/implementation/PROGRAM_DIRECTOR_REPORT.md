@@ -1217,3 +1217,67 @@ the operator to hit.
 `poetry run python t029_live_verification.py` — expect it to proceed past the topic-modeling
 embeddings step this time; real BERTopic (UMAP + HDBSCAN) and real transformer sentiment
 inference are compute-heavy and may take a genuinely long time on CPU, not a hang.
+
+---
+
+## Delta — Second Genuine Production Defect Found and Fixed: PDF Render Never Exercised Against Real-Scale Content (2026-08-06)
+
+**Trigger:** with the HuggingFace revision fix in place, the operator's live run advanced
+dramatically further: real live collection (all four analysts), real BERTopic topic modeling
+(157 topics, 35,090 rows), real transformer sentiment analysis (17,545 rows), both citations
+into one Report, finalize, and — the literal, previously-422 acceptance criterion — **the
+CSV/table export succeeded for real (200, 4,844,226 bytes, 17,545 rows)**, the first time this
+codebase has ever produced a real table export citing both a topics- and a sentiment-shaped
+AnalysisRun. The PDF export step then appeared to hang: Task Manager showed the `python.exe`
+process still consuming real CPU (not crashed, not deadlocked) with no forward progress for a
+very long time.
+
+**Root cause, confirmed by reading the actual code path (not guessed):**
+`ResultSnapshotAdapter.read()` (`infrastructure/reporting/snapshot_adapter.py`) serializes an
+entire `AnalysisRun`'s result parquet to JSON via `DataFrame.to_json(orient="records")` — for
+real data, tens of thousands of records in one JSON-array string with no natural line breaks.
+`PdfRendererAdapter.render()` embedded this string verbatim into a single reportlab `Paragraph`.
+reportlab's `Paragraph` line-wrapping is well known to become impractically slow on very large,
+mostly-unbroken single text blocks — every prior exercise of this adapter (T-027's own unit
+tests, `t029_e2e_verification.py`'s fixture citations) used a handful of records, so this
+pathological case had never actually been hit before this delta's real-scale live run. Same
+underlying pattern as the HuggingFace-revision delta immediately above: a real defect invisible
+until real, full-scale data flows through a path only fixtures had ever exercised.
+
+**Design question, resolved with the operator rather than assumed:** `PRODUCT_ARCHITECTURE.md`
+already draws a line between the manuscript-ready *table* export (full data — §184/§297, this
+repository's `/table` route, unaffected and already verified correct) and the PDF *render*
+(§184/§299) — nothing in the architecture requires the PDF to carry a second full copy of the
+raw dataset. Presented the operator two options (bounded preview + explicit omission note, vs.
+metadata-only with no embedded rows); operator chose the bounded-preview option.
+
+**Fix:** `PdfRendererAdapter` gained a `_preview()` helper — parses `citation["content"]`;
+if it's a JSON array with more than 20 records, embeds only the first 20 plus an explicit
+`"... N more row(s) omitted (TOTAL total). See this report's CSV/table export for the complete
+data."` note; anything else (a JSON object, a plain string, malformed JSON — every case the
+existing unit tests already cover) passes through completely unchanged. The full dataset is
+exactly where it already correctly lived — the CSV/table export — untouched by this change.
+
+**Verified:** all 6 pre-existing `test_pdf_renderer_adapter.py` tests still pass unchanged; one
+new regression test added (`test_render_truncates_a_large_json_array_snapshot_and_stays_fast`)
+constructs a 50,000-record citation and asserts `render()` completes in under 15 seconds (it
+does, in under 10) and that the rendered PDF text shows both the bounded preview and an explicit
+total-count/omission note rather than silently dropping data. Full local suite (same established
+sandbox-incompatible exclusions as every prior delta): 818 passed (one more than before — the
+new test), same 4 pre-existing sandbox-only `test_cli.py` subprocess failures, no new ones.
+IG-001: clean.
+
+**Engineering Gate:** satisfied — code-related, root-caused by reading the actual execution path
+(not inferred from the symptom alone), the scope-adjacent design question (what belongs in a PDF
+vs. a table export) was put to the operator rather than decided unilaterally, fixed with a
+regression test that reproduces the exact real-scale condition that caused the original failure.
+
+**Repository state changed:** `src/finfluencer/infrastructure/reporting/pdf_renderer_adapter.py`,
+`tests/unit/test_infrastructure/test_reporting/test_pdf_renderer_adapter.py`.
+
+**What becomes actionable next:** operator commits this fix and re-runs
+`poetry run python t029_live_verification.py` from a fresh terminal (the previous run's live
+collection/analysis work cannot be resumed — no Persistence Layer exists yet, a known,
+already-documented Sprint 0 characteristic, not a new gap). This time PDF export should complete
+in seconds, letting the full `T-029 LIVE MVP SIGN-OFF: N/N checks passed` summary print for the
+first time.
