@@ -1156,3 +1156,64 @@ as the other manual live scripts (real quota, real compute, must never run in CI
 **What becomes actionable next:** operator runs `poetry run python t029_live_verification.py`
 with `YT_API_KEY`/`ANON_SALT` set, on their own real machine — the literal T-029 human sign-off
 run.
+
+---
+
+## Delta — Genuine Production Defect Found and Fixed: Unfilled HuggingFace Revision Placeholders (2026-08-06)
+
+**Trigger:** operator ran `t029_live_verification.py` for real. Live collection (all four
+configured analysts — `basaran`, `gecer`, `satiroglu`, `yesilada`) succeeded completely (checks
+2a/2b/2c all PASS, real parquet files on disk). The real topic-modeling `AnalysisRun` then failed
+building its embeddings index with `OSError: REPLACE_WITH_HF_COMMIT_SHA is not a valid git
+identifier ... for this model name`.
+
+**Root cause, confirmed by literal traceback and direct grep:** `config/settings.yaml` shipped
+with three HuggingFace model-revision fields still holding the documented placeholder literal
+`"REPLACE_WITH_HF_COMMIT_SHA"` (`topics.embedding_model.revision`,
+`sentiment.primary_model.revision`, `sentiment.target_of_affect.base_revision`) — a real,
+pre-existing gap this file's own comments already anticipated ("Publication-stage runs REFUSE to
+start if this reads as placeholder"), but the guard only fires at `publication`/`submission`
+replication stage; this repository's configured stage (`exploratory`) let the literal placeholder
+string reach `SentenceTransformer(...)`/`AutoConfig.from_pretrained(...)` directly, which fails
+immediately since it isn't a valid Hub git ref. This is exactly the class of gap
+`RELEASE_BLOCKING_ASSESSMENT.md`'s finding 0.4 already flagged in the abstract ("the embeddings
+pipeline... never installed together and exercised for real, anywhere, this entire engagement") —
+this delta is the concrete instance surfacing for the first time, now that a real live run
+actually reached this code path instead of a fixture/mock.
+
+**Fix:** fetched each model's current commit SHA directly from the HuggingFace Hub's own API
+(`https://huggingface.co/api/models/{model_id}`, the `sha` field — the same value the model
+card's "Files and versions" tab would show, fetched programmatically instead of by hand) and
+filled in `config/settings.yaml`'s three placeholders with the real values, each with a comment
+recording the exact source and date. Config-data fix, not a code change — the
+`UnpinnedRevisionError`/`is_placeholder_revision` enforcement machinery itself (`core/config.py`,
+`core/exceptions.py`) is untouched and still works exactly as designed.
+
+**Regression found and fixed in the same delta:**
+`tests/unit/test_core/test_config.py::TestEnforceStagePolicy::
+test_publication_stage_with_placeholder_revisions_raises` asserted the publication-stage
+unpinned-revision gate by relying on the real `settings.yaml` shipping with placeholders —
+true before this delta, false after. Fixed by explicitly injecting a placeholder value into the
+test's own `raw` dict (mirroring the adjacent `..._does_not_raise` test's existing pattern of
+explicit field overrides) instead of depending on the fixture file's incidental contents — a
+more correctly-isolated test, not merely a patched-over one.
+
+**Verified:** `tests/unit/test_core/test_config.py` (21/21), full local suite excluding the
+established sandbox-incompatible directories (`test_reporting`, `test_embeddings`,
+`test_sentiment`, `test_topics`, `test_analysis`, `test_market`, `tests/integration`): 817
+passed, only the 4 pre-existing, already-documented sandbox-only `test_cli.py` subprocess
+failures (real `matplotlib` version ceiling in fresh subprocesses, unrelated to this change).
+IG-001: clean.
+
+**Engineering Gate:** satisfied — code/config-related, root-caused from a literal traceback (not
+inferred), fixed with an authoritative source (the Hub's own API, not a guess), the one
+consequential regression it surfaced was found and fixed in the same pass rather than left for
+the operator to hit.
+
+**Repository state changed:** `config/settings.yaml` (three placeholder values filled),
+`tests/unit/test_core/test_config.py` (one test de-coupled from incidental file state).
+
+**What becomes actionable next:** operator commits this fix and re-runs
+`poetry run python t029_live_verification.py` — expect it to proceed past the topic-modeling
+embeddings step this time; real BERTopic (UMAP + HDBSCAN) and real transformer sentiment
+inference are compute-heavy and may take a genuinely long time on CPU, not a hang.
