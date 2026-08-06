@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import ast
 import inspect
+import json
+import time
 from pathlib import Path
 
 import pytest
@@ -107,6 +109,33 @@ def test_render_escapes_markup_characters_in_content(tmp_path: Path) -> None:
     assert "quoted" in text
 
 
+def test_render_truncates_a_large_json_array_snapshot_and_stays_fast(tmp_path: Path) -> None:
+    """Regression test for the real defect this fix addresses (T-029 live MVP sign-off,
+    2026-08-06): `ResultSnapshotAdapter.read()` output for real data is a JSON array with tens
+    of thousands of records -- embedding it verbatim in one reportlab `Paragraph` was
+    impractically slow. A large array (50,000 records, well past `_MAX_PREVIEW_ROWS`) must
+    render in a bounded, fast amount of time, and the resulting PDF text must show a bounded
+    number of preview rows plus an explicit total-count/truncation note -- not silently drop
+    the fact that data was omitted.
+    """
+    output_path = tmp_path / "report.pdf"
+    large_content = json.dumps([{"comment_id": f"c{i}", "topic_id": i % 7} for i in range(50_000)])
+    citations = [_citation(record_id="record-large", content=large_content)]
+
+    started = time.monotonic()
+    PdfRendererAdapter().render(
+        report_id="report-1", report_version=1,
+        citations=citations, output_path=str(output_path),
+    )
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 15, f"render() took {elapsed:.1f}s for a 50,000-record citation -- expected a bounded preview, not the full array"
+    text = _extract_text(output_path)
+    assert "record-large" in text
+    assert "50000" in text or "50,000" in text  # total count surfaced somewhere in the note
+    assert "more row" in text  # the omission note itself, not a silent truncation
+
+
 def test_adapter_module_imports_only_reportlab_pathlib_and_domain_reporting_engine() -> None:
     import finfluencer.infrastructure.reporting.pdf_renderer_adapter as module
 
@@ -124,5 +153,8 @@ def test_adapter_module_imports_only_reportlab_pathlib_and_domain_reporting_engi
     assert not any(m.startswith("finfluencer.domain.repositories") for m in imported_modules)
     for module_name in imported_modules:
         assert module_name.startswith(
-            ("reportlab", "pathlib", "finfluencer.domain.reporting_engine", "__future__"),
+            (
+                "reportlab", "pathlib", "json",
+                "finfluencer.domain.reporting_engine", "__future__",
+            ),
         ), f"unexpected import {module_name!r} in pdf_renderer_adapter.py"
