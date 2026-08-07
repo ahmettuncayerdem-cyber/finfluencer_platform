@@ -69,11 +69,25 @@ _PROVIDER_KEY_PATTERN: str = r"^[a-z][a-z0-9_]*$"
 
 
 class ExpertiseClass(str, Enum):
-    """Analyst expertise controlled vocabulary. See analysts.yaml."""
+    """Analyst expertise controlled vocabulary. See analysts.yaml.
+
+    The four original values below are the closed, pre-registered vocabulary for the Turkish
+    finfluencer study (see the module-level note above this class) -- unchanged, not
+    renumbered, not touched by the addition below.
+
+    ``news_media_international`` added 2026-08-07 for the Gaza War audience-reception pilot
+    study (config/settings.gaza_pilot.yaml, config/analysts.gaza_pilot.yaml) -- a genuinely
+    different construct (international news broadcaster, not a financial "analyst" with a
+    trading/macro "expertise"). Reusing any of the four existing values for a news channel
+    would misrepresent what that channel actually is (see docs/research/
+    GAZA_PILOT_PHASE2_INFRASTRUCTURE.md sec.4 for the full reasoning); adding a fifth,
+    disjoint value is additive-only and does not touch the original study's pre-registration.
+    """
     technical_macro = "technical_macro"
     macro_political = "macro_political"
     long_horizon = "long_horizon"
     equity_portfolio = "equity_portfolio"
+    news_media_international = "news_media_international"
 
 
 class ReplicationStage(str, Enum):

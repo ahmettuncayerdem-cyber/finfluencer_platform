@@ -1,0 +1,339 @@
+# =============================================================================
+# Finfluencer Research Platform — Gaza Pilot Study Settings
+# =============================================================================
+#
+# SEPARATE, ISOLATED config file for the "Audience Narrative Reception and
+# Sentiment" Gaza War pilot study -- does NOT replace or modify
+# config/settings.yaml (the production Turkish finfluencer study's own
+# config, left completely untouched). Pass explicitly via
+# create_app(settings_path=..., analysts_path=...) or the CLI's
+# --settings/--analysts flags (see README.md "Configuration" section).
+#
+# Companion docs:
+#   docs/research/GAZA_PILOT_PHASE1_PLAN.md
+#   docs/research/GAZA_PILOT_MINIMAL_DESIGN.md
+#   docs/research/GAZA_PILOT_PHASE2_INFRASTRUCTURE.md
+#
+# STATUS (2026-08-07): built for END-TO-END PILOT VALIDATION ONLY, per
+# explicit operator instruction -- NOT the full Phase 3 Pilot Collection
+# Plan (docs/research/GAZA_PILOT_PHASE2_INFRASTRUCTURE.md sec.7) and
+# certainly not the Phase 5 full study. collection.max_videos_per_analyst
+# and collection.max_comments_per_video below are deliberately set SMALLER
+# than the already-approved Pilot Collection Plan's own figures (2-3
+# videos / 500 comments) specifically to keep this first real run as small
+# as technically meaningful -- raise them to the Pilot Collection Plan's
+# own values only once this smoke test is reviewed and the operator
+# explicitly decides to proceed to the fuller pilot.
+#
+# Same schema as config/settings.yaml (core/contracts.py's `Settings`
+# model) -- every section below is required by that same Pydantic schema
+# even where a given field is not actually read by the live API workflow
+# this study will exercise (create_app -> collection-runs -> analysis-runs
+# -> reports -> exports, per docs/research/QUICKSTART.md). Fields not
+# reached by that live path are marked "(inert for the live path)" below
+# rather than deleted, so the file still validates and still documents
+# the platform's full config surface honestly.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# STUDY METADATA
+# -----------------------------------------------------------------------------
+study:
+  name: "gaza_narrative_pilot_2026"
+  version: "0.1.0"
+
+  # Deliberately a NEW, distinct seed from the Turkish study's root_seed=42
+  # (Phase 2 report sec.4, Decision R-1) -- keeps this study's own
+  # randomness stream (BERTopic's UMAP/HDBSCAN, any future subsampling)
+  # provenance-distinct rather than silently inheriting the other study's
+  # seed. Documented here explicitly, not left implicit.
+  root_seed: 20260807
+
+  description: >
+    Pilot validation of the Finfluencer Research Platform's Version 1.0
+    infrastructure using real, English-language YouTube audience comments
+    from an international news channel, ahead of the "Audience Narrative
+    Reception and Sentiment Across Differently-Positioned International
+    News Channels" comparative study (Gaza War coverage; see
+    docs/research/GAZA_PILOT_MINIMAL_DESIGN.md). This run is a technical
+    end-to-end smoke test -- collection, preprocessing, topic modelling,
+    sentiment classification, citation, and export -- not the study's
+    final scientific data collection.
+
+  # SMOKE-TEST WINDOW, not the study's final scientific observation
+  # window. The real, event-anchored window is still an open, Mandatory
+  # decision (Phase 2 report sec.9, Decision D-Window) requiring the
+  # operator's own current knowledge of the conflict timeline -- this
+  # window exists only so the pipeline has *some* recent, real videos to
+  # collect for validation purposes, and must NOT be reused as the
+  # eventual study's actual sampling window without that decision being
+  # made deliberately.
+  observation_window:
+    start: "2026-07-08"
+    end:   "2026-08-07"
+
+
+# -----------------------------------------------------------------------------
+# PROVIDERS
+# -----------------------------------------------------------------------------
+providers:
+  # Changed from "turkish" -- a real, already-implemented, already-
+  # registered provider (src/finfluencer/providers/language/english.py,
+  # @register("language", "english")), not a stub. No code change was
+  # needed for this switch; it already existed as a "roadmap
+  # demonstration" per that file's own docstring.
+  language: "english"
+  platform: "youtube"
+
+
+# -----------------------------------------------------------------------------
+# COLLECTION
+# -----------------------------------------------------------------------------
+collection:
+  # SMOKE-TEST scope: intentionally smaller than the Phase 2 Pilot
+  # Collection Plan's own figures (2-3 videos / 500-comment cap) -- see
+  # the file-level note above. Raise for the fuller pilot only after this
+  # run is reviewed.
+  max_videos_per_analyst: 2
+  max_comments_per_video: 50
+
+  max_comments_per_user_per_video: 5
+  shorts_max_duration_sec: 60
+
+  # Turkish finance-specific promotional keywords ("reklam", "sponsorlu",
+  # etc.) do not apply to English-language international news content --
+  # cleared rather than carried over silently. Empty list is valid
+  # (CollectionConfig.promo_keywords defaults to an empty list).
+  promo_keywords: []
+
+  quota:
+    daily_units: 10000
+    safety_margin: 500
+
+
+# -----------------------------------------------------------------------------
+# PREPROCESSING
+# -----------------------------------------------------------------------------
+preprocessing:
+  min_tokens: 3
+  jaccard_dup_threshold: 0.90
+  # EnglishLanguageProvider ships its own base stopword list; no
+  # augmentation file needed for this pilot.
+  stopwords_augment_path: null
+
+
+# -----------------------------------------------------------------------------
+# SENTIMENT CLASSIFICATION
+# -----------------------------------------------------------------------------
+sentiment:
+  # English Sentiment Model Decision (D-1), per
+  # docs/research/GAZA_PILOT_PHASE2_INFRASTRUCTURE.md sec.5 --
+  # cardiffnlp/twitter-roberta-base-sentiment-latest, chosen for its
+  # social-media domain match and its 3-class (negative/neutral/positive)
+  # output structure, which matches this platform's existing
+  # sentiment_class schema and pseudo_neutral_band mechanism exactly
+  # (unlike the binary-only alternative considered, siebert/
+  # sentiment-roberta-large-english).
+  primary_model:
+    name: "cardiffnlp/twitter-roberta-base-sentiment-latest"
+
+    # Real, verified commit SHA -- fetched directly from
+    # https://huggingface.co/api/models/cardiffnlp/twitter-roberta-base-sentiment-latest
+    # ("sha" field) on 2026-08-07, the same convention already used for
+    # the Turkish study's own pinned models (see config/settings.yaml's
+    # own inline comments). NOT a placeholder.
+    # License note (corrected from the Phase 2 report's earlier
+    # assumption): this model card states CC-BY-4.0, not MIT --
+    # attribution is required in any publication citing this model.
+    revision: "3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7"
+
+    max_length: 512
+
+  batch_size: 64
+
+  # UNCHANGED from the Turkish study's default -- NOT yet recalibrated
+  # for this model's own probability-output characteristics. Flagged as
+  # an open item in the Phase 2 report (sec.4's config table) precisely
+  # because different models are differently calibrated; real
+  # recalibration is a Phase 4 (gold-sample validation) task, not
+  # something to invent a number for here without real held-out data.
+  pseudo_neutral_band: [0.40, 0.60]
+
+  # Analyst-vs-market target-of-affect classification (Methods §3.4.2 of
+  # the Turkish study) does not apply to international news audience
+  # comments -- there is no "analyst" being addressed. Disabled rather
+  # than repurposed. (inert for the live path in any case: fine_tune_
+  # checkpoint is still null upstream, i.e. not yet built for either study.)
+  target_of_affect:
+    enabled: false
+    base_model: "dbmdz/bert-base-turkish-cased"
+    base_revision: "b6e1de16c983e0f2c70664591ea3f22810072608"
+    heads: ["polarity", "target"]
+    target_labels: ["analyst", "market", "both", "neither"]
+    fine_tune_checkpoint: null
+
+
+# -----------------------------------------------------------------------------
+# TOPIC MODELLING
+# -----------------------------------------------------------------------------
+topics:
+  # UNCHANGED from the Turkish study -- already multilingual, plausibly
+  # covers English without a swap (Phase 2 report sec.5/6). Still
+  # requires the pilot-stage coherence check this smoke test performs.
+  embedding_model:
+    name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    revision: "e8f8c211226b894fcb81acc59f3b34ba3efd5f42"
+
+  umap:
+    n_neighbors: 15
+    n_components: 5
+    min_dist: 0.0
+    metric: "cosine"
+    low_memory: true
+
+  # REDUCED from the Turkish study's defaults (min_cluster_size: 15,
+  # min_samples: 5), which were tuned for a much larger corpus.
+  # At this smoke test's tiny real scale (as few as ~50-100 comments
+  # total), the original values would very likely collapse everything
+  # into a single outlier cluster and tell us nothing about whether
+  # topic modelling is actually working -- lowered specifically so this
+  # smoke test can produce a real, checkable, non-degenerate signal.
+  # NOT the value to use for the full-scale study; revisit at that scale.
+  hdbscan:
+    min_cluster_size: 5
+    min_samples: 2
+    metric: "euclidean"
+    cluster_selection_method: "eom"
+
+  configurations:
+    within_analyst: true
+    pooled: true
+
+  merge_similarity_threshold: 0.90
+  reduce_outliers: true
+  quality_metrics: ["c_v", "topic_diversity"]
+
+
+# -----------------------------------------------------------------------------
+# DICTIONARIES (inert for the live path -- see module note above; kept
+# pointing at the Turkish-study files only because the live API workflow
+# this pilot exercises does not read this section at all. Not a real
+# methodological choice for this study either way.)
+# -----------------------------------------------------------------------------
+dictionaries:
+  files:
+    trust:                "config/dictionaries/trust.yaml"
+    investment_behaviour: "config/dictionaries/investment_behaviour.yaml"
+    risk_uncertainty:     "config/dictionaries/risk_uncertainty.yaml"
+  match_mode: "token"
+  case_fold: true
+
+
+# -----------------------------------------------------------------------------
+# STATISTICAL INFERENCE (inert for the live path -- belongs to the
+# separate CLI `analyze`/`report` pipeline, not the API workflow this
+# smoke test exercises. Left at the Turkish study's defaults.)
+# -----------------------------------------------------------------------------
+statistics:
+  alpha: 0.05
+  bonferroni_within_family: true
+  fdr_method: "benjamini_hochberg"
+  permutations: 5000
+  post_hoc_pairwise: "dunn"
+
+
+# -----------------------------------------------------------------------------
+# BEHAVIOURAL FINANCE INDICES (Reserved for Phase 5 of the ORIGINAL
+# Turkish study; not applicable here, not built yet either way.)
+# -----------------------------------------------------------------------------
+behavioural_indices:
+  panic_rolling_window: 7
+  herding_variance_threshold: 0.10
+  loss_aversion_lag_weeks: 1
+
+
+# -----------------------------------------------------------------------------
+# OUTPUT FORMATS AND PATHS (inert for the live path -- create_app's own
+# `collection_base_root` argument controls where this pilot's real data
+# actually lands, not these paths. Left at schema-valid defaults.)
+# -----------------------------------------------------------------------------
+output:
+  paths:
+    data_raw:       "data/raw"
+    data_interim:   "data/interim"
+    data_processed: "data/processed"
+    data_external:  "data/external"
+    cache:          "cache"
+    logs:           "logs"
+    checkpoints:    "checkpoints"
+    tables:         "outputs/auto/tables"
+    figures:        "outputs/auto/figures"
+    appendices:     "outputs/auto/appendices"
+    reports:        "outputs/auto/reports"
+    manuscript:     "outputs/manuscript"
+    replication:    "outputs/replication"
+  figures:
+    dpi: 300
+    formats: ["svg", "png"]
+    style: "publication"
+    colourblind_safe: true
+  tables:
+    formats: ["xlsx", "csv"]
+    decimal_places: 3
+    thousands_separator: false
+
+
+# -----------------------------------------------------------------------------
+# ETHICS-IN-DESIGN
+# -----------------------------------------------------------------------------
+ethics:
+  # Retention/privacy policy for this study (Phase 1 Decision Register
+  # D-6) is still an OPEN decision -- 90 days carried forward from the
+  # Turkish study as a schema-valid default, not a considered choice for
+  # politically sensitive conflict-discourse data. Revisit before any
+  # real (non-smoke-test) collection.
+  retention_days: 90
+
+  # More directly relevant here than in the original study -- Gaza War
+  # discourse is exactly the kind of content this flag exists for.
+  sensitive_topic_detection: true
+
+  strict_reproducibility: false
+
+
+# -----------------------------------------------------------------------------
+# REPLICATION PACKAGE
+# -----------------------------------------------------------------------------
+replication:
+  # "submission" (not "exploratory") deliberately kept -- this enforces
+  # real ANON_SALT strictness (core/config.py, collect/comments.py) for
+  # this run's real commenter data, which is a privacy protection this
+  # pilot should have from its very first real run, not something to
+  # relax just because it's a smoke test.
+  stage: "submission"
+  target: "zenodo"
+  zenodo:
+    community: null
+    sandbox: true
+    embargo_until: null
+  include_model_weights: true
+  restricted_tier:
+    provider: null
+
+
+# -----------------------------------------------------------------------------
+# LLM INTEGRATION -- OFF, same as the Turkish study. Not used by this
+# platform's core analytical pipeline either way.
+# -----------------------------------------------------------------------------
+llm:
+  enabled: false
+  provider: "offline_stub"
+  require_human_validation: true
+  model: null
+  prompt_version: "v1.0.0"
+
+
+# =============================================================================
+# END OF settings.gaza_pilot.yaml
+# =============================================================================

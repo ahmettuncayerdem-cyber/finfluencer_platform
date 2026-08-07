@@ -1,0 +1,97 @@
+# =============================================================================
+# Finfluencer Research Platform — Gaza Pilot Roster
+# =============================================================================
+#
+# SEPARATE, ISOLATED from config/analysts.yaml (the production Turkish
+# study's roster, left completely untouched).
+#
+# SMOKE-TEST SCOPE (2026-08-07): exactly ONE channel is active below,
+# per the explicit operator instruction to validate end-to-end, not start
+# large-scale collection. This matches the Phase 2 report's own Pilot
+# Collection Plan recommendation ("start with 1 channel"). The other two
+# approved channels (Al Jazeera English, TRT World; see
+# docs/research/GAZA_PILOT_MINIMAL_DESIGN.md sec.3) are listed below,
+# commented out, with their real verified channel IDs already filled in
+# -- extending to the full 3-channel pilot later is an uncomment, not new
+# lookup work.
+#
+# Channel IDs verified directly against each channel's own live
+# YouTube "about" page on 2026-08-07 (not guessed):
+#   BBC News            -> https://www.youtube.com/@BBCNews/about
+#   Al Jazeera English   -> https://www.youtube.com/@AlJazeeraEnglish/about
+#   TRT World            -> https://www.youtube.com/@trtworld/about
+#
+# `expertise_class` uses the new `news_media_international` value added
+# to core/contracts.py's ExpertiseClass enum on 2026-08-07 specifically
+# for this study -- the four original Turkish-study values (technical_
+# macro, macro_political, long_horizon, equity_portfolio) describe
+# financial-analyst expertise and do not honestly describe an
+# international news broadcaster; seeing this comment is the intended
+# way to notice that decision, not just the code diff. See
+# docs/research/GAZA_PILOT_PHASE2_INFRASTRUCTURE.md sec.4 for the full
+# reasoning and core/contracts.py's own updated docstring for the
+# additive-only scope of that change.
+#
+# The field names below ("analyst", "expertise_class", "expertise_
+# description") are the schema's own names (AnalystRecord, core/
+# contracts.py) -- reused as-is because this pilot study intentionally
+# does not fork the schema for a single field-naming preference; read
+# "analyst" here as "roster entry" / "channel", not as a claim that
+# BBC News is a financial analyst.
+# =============================================================================
+
+
+analysts:
+
+  # ---------------------------------------------------------------------------
+  # 1. BBC News — SMOKE-TEST CHANNEL (pilot: true)
+  # ---------------------------------------------------------------------------
+  - key: "bbc_news"
+    display_name: "BBC News"
+    handle: "@BBCNews"
+    channel_id: "UC16niRr50-MSBwiO3YDb3RA"
+    expertise_class: "news_media_international"
+    expertise_description: >
+      UK public-service broadcaster, license-fee funded. International news
+      channel, not a financial analyst -- see docs/research/
+      GAZA_PILOT_MINIMAL_DESIGN.md sec.3 for the institutional-positioning
+      rationale behind including this channel in the comparative study.
+    pilot: true
+    channel_url: "https://www.youtube.com/@BBCNews"
+    verified_at: "2026-08-07"
+
+  # ---------------------------------------------------------------------------
+  # 2. Al Jazeera English — READY, NOT ACTIVE in this smoke test
+  # ---------------------------------------------------------------------------
+  # - key: "al_jazeera_english"
+  #   display_name: "Al Jazeera English"
+  #   handle: "@aljazeeraenglish"
+  #   channel_id: "UCNye-wNBqNL5ZzHSJj3l8Bg"
+  #   expertise_class: "news_media_international"
+  #   expertise_description: >
+  #     Doha-headquartered, Qatar state-funded international news channel.
+  #     See docs/research/GAZA_PILOT_MINIMAL_DESIGN.md sec.3.
+  #   pilot: false
+  #   channel_url: "https://www.youtube.com/@AlJazeeraEnglish"
+  #   verified_at: "2026-08-07"
+
+  # ---------------------------------------------------------------------------
+  # 3. TRT World — READY, NOT ACTIVE in this smoke test
+  # ---------------------------------------------------------------------------
+  # - key: "trt_world"
+  #   display_name: "TRT World"
+  #   handle: "@trtworld"
+  #   channel_id: "UC7fWeaHhqgM4Ry-RMpM2YYw"
+  #   expertise_class: "news_media_international"
+  #   expertise_description: >
+  #     Ankara-headquartered, Turkish state broadcaster's English-language
+  #     international news channel. See docs/research/
+  #     GAZA_PILOT_MINIMAL_DESIGN.md sec.3.
+  #   pilot: false
+  #   channel_url: "https://www.youtube.com/@trtworld"
+  #   verified_at: "2026-08-07"
+
+
+# =============================================================================
+# END OF analysts.gaza_pilot.yaml
+# =============================================================================
