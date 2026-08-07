@@ -205,6 +205,22 @@ class ModelReference(_Base):
     revision: str = Field(min_length=1)
     max_length: int | None = None
 
+    # Added 2026-08-07 (Gaza pilot smoke test, real evidence): TransformerSentimentClassifier
+    # hardcoded use_safetensors=True as a deliberate fix for a real, reproduced Windows-only
+    # crash (WinError 1114 loading torch/lib/c10.dll) when loading legacy pickle (.bin)
+    # checkpoints on this environment (see sentiment/transformer_classifier.py's own inline
+    # history). That fix silently assumed every future pinned model ships a model.safetensors
+    # file. cardiffnlp/twitter-roberta-base-sentiment-latest does not (confirmed via the HF
+    # Hub API -- siblings list has pytorch_model.bin/tf_model.h5 only, no safetensors, and no
+    # auto-conversion branch exists either), so the hardcoded flag now fails outright with a
+    # real OSError. Default True preserves the existing, already-proven-safe behavior for
+    # every current config (including the Turkish study's own pinned models) unchanged;
+    # setting this False for a specific model is a DELIBERATE, per-model, reversible
+    # experiment -- it reintroduces the legacy pickle-loading path that caused the original
+    # Windows DLL crash, so it must be tried and observed on real Windows hardware, not
+    # assumed safe.
+    use_safetensors: bool = True
+
 
 class TargetOfAffectConfig(_Base):
     enabled: bool

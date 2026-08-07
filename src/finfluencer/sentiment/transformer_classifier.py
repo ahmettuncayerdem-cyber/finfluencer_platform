@@ -74,6 +74,7 @@ class TransformerSentimentClassifier:
         device: str | None = None,
         batch_size: int = 32,
         max_length: int = DEFAULT_MAX_LENGTH,
+        use_safetensors: bool = True,
         model: Any | None = None,
         tokenizer: Any | None = None,
     ) -> None:
@@ -82,6 +83,7 @@ class TransformerSentimentClassifier:
         self.device: str = device or _auto_device()
         self.batch_size: int = batch_size
         self.max_length: int = max_length
+        self.use_safetensors: bool = use_safetensors
 
         if model is not None and tokenizer is not None:
             self._model = model
@@ -103,9 +105,24 @@ class TransformerSentimentClassifier:
                 # torch/lib/c10.dll). Omitting the flag entirely still hit
                 # the same failure (transformers did not auto-prefer
                 # safetensors here) - only an EXPLICIT use_safetensors=True
-                # avoids it, confirmed via isolated reproduction. Do not
-                # remove or flip this without re-testing against that crash.
-                use_safetensors=True,
+                # avoids it, confirmed via isolated reproduction.
+                #
+                # UPDATED (2026-08-07, Gaza pilot smoke test): hardcoding
+                # True silently assumed every future pinned model ships a
+                # safetensors file. cardiffnlp/twitter-roberta-base-
+                # sentiment-latest does not (real OSError observed, no
+                # auto-conversion branch exists on the Hub either) -- now a
+                # constructor parameter (core.contracts.ModelReference.
+                # use_safetensors), defaulting to True so every existing
+                # config (including the Turkish study's own pinned models)
+                # keeps exactly its current, already-proven-safe behavior.
+                # Setting it False for a specific model is a deliberate,
+                # per-model, reversible experiment that REINTRODUCES the
+                # legacy pickle-loading path responsible for the original
+                # Windows DLL crash above -- it must be exercised and
+                # observed on real Windows hardware before being trusted,
+                # not assumed safe by symmetry with this comment.
+                use_safetensors=self.use_safetensors,
             ).to(self.device)
             self._model.eval()
 

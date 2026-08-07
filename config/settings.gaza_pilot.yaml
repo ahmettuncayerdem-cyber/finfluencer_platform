@@ -150,6 +150,23 @@ sentiment:
 
     max_length: 512
 
+    # REAL FINDING, not theoretical (2026-08-07 smoke-test run on the operator's own
+    # Windows machine): this checkpoint has no model.safetensors file on the Hub (only
+    # pytorch_model.bin/tf_model.h5; confirmed via the Hub's own refs API -- no
+    # auto-conversion branch exists either). The platform's use_safetensors=True default
+    # was hardcoded specifically to avoid a DIFFERENT, previously-reproduced Windows-only
+    # crash (WinError 1114 loading torch/lib/c10.dll) when loading legacy pickle
+    # checkpoints -- see sentiment/transformer_classifier.py's own inline history. Setting
+    # this False is therefore a DELIBERATE, flagged experiment: it lets this specific
+    # model load (bypassing the missing-safetensors OSError) but reintroduces the legacy
+    # pickle-loading code path that crashed before. Must be run and observed for real on
+    # Windows -- this was not, and could not be, verified from the Linux sandbox (no
+    # network route to huggingface.co there either, confirmed). If it reproduces the
+    # WinError 1114 crash, do not keep retrying -- report the exact traceback back so the
+    # underlying torch/Windows environment issue can be investigated directly instead of
+    # worked around per-model again.
+    use_safetensors: false
+
   batch_size: 64
 
   # UNCHANGED from the Turkish study's default -- NOT yet recalibrated

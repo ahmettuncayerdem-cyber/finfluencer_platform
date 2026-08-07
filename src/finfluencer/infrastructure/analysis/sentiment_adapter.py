@@ -67,7 +67,11 @@ class SentimentAnalysisAdapter:
 
     def _default_provider_factory(self) -> SentimentProvider:
         model_ref = self._settings.sentiment.primary_model
-        return TransformerSentimentClassifier(model_name=model_ref.name, revision=model_ref.revision)
+        return TransformerSentimentClassifier(
+            model_name=model_ref.name,
+            revision=model_ref.revision,
+            use_safetensors=model_ref.use_safetensors,
+        )
 
     def _resolve_provider(self) -> SentimentProvider:
         return self._provider if self._provider is not None else self._provider_factory()
