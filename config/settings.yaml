@@ -410,7 +410,22 @@ replication:
   #   "internal"    — pre-registration checks pass; suitable for internal review.
   #   "submission"  — replication package builds; suitable for manuscript submission.
   #   "publication" — all revisions pinned; strict git checks; DOI-minting.
-  stage: "exploratory"
+  #
+  # Raised from "exploratory" to "submission" as part of the Version 1.0 Research Readiness
+  # freeze (docs/implementation/V1.0_RESEARCH_READINESS_AUDIT.md section 8 item 3, 2026-08-07):
+  # staying at "exploratory" past MVP sign-off meant no reproducibility discipline was actually
+  # being enforced. "submission" (not "publication") was chosen deliberately: it activates real
+  # strictness already wired in this codebase -- ANON_SALT minimum-length/placeholder rejection
+  # (core/config.py, collect/comments.py) and a clean-git-tree requirement before any replication
+  # package build (reporting/replication.py's `_gate_publication_stage`, despite its name, is
+  # applied at "submission" too) -- without also requiring "publication"'s two furthest-reaching
+  # gates: HuggingFace revision-pin enforcement (core/config.py's `_enforce_stage_policy`, which
+  # in this repo's current state would pass anyway -- all three placeholders were filled in for
+  # T-029) and a clean-git-tree requirement on every CLI report generation
+  # (reporting/main.py), not just replication-package builds. Moving to "publication" is a
+  # separate, deliberately deferred decision for whoever runs the actual submission-bound
+  # manuscript export, not bundled into this freeze pass.
+  stage: "submission"
 
   # Deposit target for Module L publish step. "zenodo" | "local".
   target: "zenodo"

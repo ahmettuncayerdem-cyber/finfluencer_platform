@@ -112,6 +112,12 @@ def build_master_table(
     comments_path: Path = Path("data/raw/comments.parquet"),
     topics_path: Path = Path("data/processed/topics.parquet"),
     sentiment_path: Path = Path("data/processed/sentiment.parquet"),
+    topics_analysis_run_id: str | None = None,
+    topics_model_name: str | None = None,
+    topics_model_revision: str | None = None,
+    sentiment_analysis_run_id: str | None = None,
+    sentiment_model_name: str | None = None,
+    sentiment_model_revision: str | None = None,
 ) -> pd.DataFrame:
     """Build the comment-level master analysis table.
 
@@ -128,15 +134,29 @@ def build_master_table(
         Paths to the three source Parquet files. Defaults match the
         paths the original script used implicitly (relative to the
         repository root).
+    topics_analysis_run_id, topics_model_name, topics_model_revision,
+    sentiment_analysis_run_id, sentiment_model_name, sentiment_model_revision
+        Optional provenance to stamp onto every row as constant-value
+        columns (V1.0 Research Readiness freeze,
+        ``docs/implementation/V1.0_RESEARCH_READINESS_AUDIT.md`` section 8
+        item 2). Added because the exported CSV previously carried no
+        field identifying which ``AnalysisRun``/model produced a given
+        row — traceable only by manually cross-referencing a separate
+        ``provenance.json``. **Purely additive and opt-in**: omitted
+        (the default, ``None``) reproduces the exact prior column set,
+        so every existing caller and the differential test above are
+        unaffected. When any of a pair is given, its column is added;
+        callers that only know some of the six values may pass just
+        those.
 
     Returns
     -------
     pd.DataFrame
-        One row per comment, with columns:
-        ``comment_id, video_id, analyst_key, posted_date, text_clean,
-        n_tokens, likes, sentiment_class, sentiment_prob,
-        topic_id_pooled, topic_label_pooled, topic_prob_pooled,
-        topic_id_within, topic_label_within``.
+        One row per comment. Columns as before, plus (only when the
+        corresponding argument above was given, in this order at the
+        end): ``sentiment_analysis_run_id, sentiment_model_name,
+        sentiment_model_revision, topics_analysis_run_id,
+        topics_model_name, topics_model_revision``.
 
     Raises
     ------
@@ -162,11 +182,24 @@ def build_master_table(
         .merge(tp_within, on="comment_id", how="left")
     )
 
+    provenance_columns = {
+        "sentiment_analysis_run_id": sentiment_analysis_run_id,
+        "sentiment_model_name": sentiment_model_name,
+        "sentiment_model_revision": sentiment_model_revision,
+        "topics_analysis_run_id": topics_analysis_run_id,
+        "topics_model_name": topics_model_name,
+        "topics_model_revision": topics_model_revision,
+    }
+    for column_name, value in provenance_columns.items():
+        if value is not None:
+            master[column_name] = value
+
     _log.info(
         "master_table_built",
         n_rows=len(master),
         n_null_sentiment=int(master["sentiment_class"].isna().sum()),
         n_null_topic_pooled=int(master["topic_id_pooled"].isna().sum()),
+        provenance_columns_added=[k for k, v in provenance_columns.items() if v is not None],
     )
     return master
 

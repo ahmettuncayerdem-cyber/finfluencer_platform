@@ -58,6 +58,16 @@ def _set_tmp_output_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
 def _cfg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     _set_tmp_output_paths(tmp_path, monkeypatch)
+    # This whole file's tests build/inspect a replication package in isolation and were never
+    # meant to exercise stage-gating (that is `TestPublicationStageGate`'s own, narrower job) --
+    # pin the stage explicitly rather than inherit whatever config/settings.yaml's real default
+    # currently is. Needed as of the V1.0 Research Readiness freeze
+    # (docs/implementation/V1.0_RESEARCH_READINESS_AUDIT.md section 8 item 3, 2026-08-07), which
+    # raised that real default from "exploratory" to "submission" -- without this override, every
+    # test below would start hitting `_gate_publication_stage`'s clean-git-tree requirement
+    # (submission-stage, not just publication-stage) against this sandbox's real, routinely-dirty
+    # working tree, for reasons having nothing to do with what each test actually verifies.
+    monkeypatch.setenv("FINFLUENCER_REPLICATION__STAGE", "exploratory")
     return load_settings(_SETTINGS, _ANALYSTS)
 
 
@@ -502,14 +512,37 @@ class TestSelfValidation:
 
 
 class TestPublicationStageGate:
-    def test_exploratory_stage_default_does_not_require_clean_git_tree(self, tmp_path, monkeypatch):
-        # config/settings.yaml's default replication.stage is "exploratory";
-        # the sandbox/CI working tree is routinely dirty during development,
-        # so this must not raise.
+    def test_exploratory_stage_does_not_require_clean_git_tree(self, tmp_path, monkeypatch):
+        # `_cfg()` pins the stage to "exploratory" explicitly (see its own docstring/comment --
+        # as of the V1.0 Research Readiness freeze, config/settings.yaml's real default is
+        # "submission", not "exploratory"). At "exploratory", the sandbox/CI working tree being
+        # routinely dirty during development must not raise.
         cfg = _cfg(tmp_path, monkeypatch)
         _write_fake_report_outputs(cfg)
         result = build_replication_package(cfg)
         assert result["exported_to"].exists()
+
+    def test_submission_stage_requires_clean_git_tree(self, tmp_path, monkeypatch):
+        """Closes a real coverage gap the V1.0 freeze's `replication.stage` change surfaced:
+        nothing previously proved the gate actually fires when a stricter stage IS selected --
+        only that it correctly stays out of the way at "exploratory". Mocks `get_git_state`
+        (already unit-tested in isolation, `tests/unit/test_core/test_reproducibility.py`)
+        rather than depending on this sandbox's actual, uncontrolled git state."""
+        import finfluencer.reporting.replication as replication_module
+
+        # Deliberately not using _cfg() here -- it pins stage to "exploratory", the opposite of
+        # what this test needs. Same output-path setup, stage set to "submission" instead.
+        _set_tmp_output_paths(tmp_path, monkeypatch)
+        monkeypatch.setenv("FINFLUENCER_REPLICATION__STAGE", "submission")
+        cfg = load_settings(_SETTINGS, _ANALYSTS)
+        _write_fake_report_outputs(cfg)
+        monkeypatch.setattr(
+            replication_module, "get_git_state",
+            lambda: {"available": True, "dirty": True, "short_commit": "deadbee"},
+        )
+
+        with pytest.raises(ReproducibilityError):
+            build_replication_package(cfg)
 
 
 # =============================================================================

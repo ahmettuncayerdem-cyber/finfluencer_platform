@@ -353,7 +353,7 @@ def create_app(
         "sentiment", "1.0.0", entity_id=SENTIMENT_ANALYSIS_TYPE_ID,
     )
     result_snapshot_reader = ResultSnapshotAdapter(base_root=base_root)
-    table_exporter = MasterTableExportAdapter(base_root=base_root)
+    table_exporter = MasterTableExportAdapter(base_root=base_root, settings=cfg.settings)
     pdf_renderer = PdfRendererAdapter()
 
     exports_root = base_root / "exports"

@@ -15,9 +15,32 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from finfluencer.core.contracts import ModelReference
 from finfluencer.infrastructure.reporting import MasterTableExportAdapter
 from finfluencer.reporting.master_table import build_master_table
 from finfluencer.utils.io import read_parquet, write_parquet
+
+
+class _FakeTopicsConfig:
+    """Minimal stand-in carrying only what `MasterTableExportAdapter` reads
+    (`.embedding_model.name`/`.revision`) -- avoids constructing the real,
+    much heavier `TopicsConfig` (umap/hdbscan/configurations) for a test
+    that only exercises this one field, same pattern
+    `test_sentiment_adapter.py`'s own `_FakeSettings` already established."""
+
+    def __init__(self, model: ModelReference) -> None:
+        self.embedding_model = model
+
+
+class _FakeSentimentConfig:
+    def __init__(self, model: ModelReference) -> None:
+        self.primary_model = model
+
+
+class _FakeSettings:
+    def __init__(self, *, topics_model: ModelReference, sentiment_model: ModelReference) -> None:
+        self.topics = _FakeTopicsConfig(topics_model)
+        self.sentiment = _FakeSentimentConfig(sentiment_model)
 
 
 def _write_fixture(base_root: Path, *, collection_run_id: str, topics_run_id: str, sentiment_run_id: str) -> None:
@@ -90,6 +113,71 @@ def test_export_produces_output_identical_to_calling_build_master_table_directly
     pd.testing.assert_frame_equal(
         written_df.reset_index(drop=True), expected_csv_df.reset_index(drop=True),
     )
+
+
+def test_export_without_settings_adds_no_provenance_columns(tmp_path: Path) -> None:
+    """`settings=None` (the default, and every pre-existing call site's behavior) must reproduce
+    the exact prior column set -- the V1.0-freeze provenance columns are opt-in only."""
+    base_root = tmp_path / "runs"
+    collection_run_id = "cr-1"
+    topics_run_id = "ar-topics-1"
+    sentiment_run_id = "ar-sentiment-1"
+    _write_fixture(
+        base_root, collection_run_id=collection_run_id,
+        topics_run_id=topics_run_id, sentiment_run_id=sentiment_run_id,
+    )
+
+    adapter = MasterTableExportAdapter(base_root=base_root)
+    output_path = tmp_path / "export.csv"
+    adapter.export(
+        collection_run_id=collection_run_id,
+        analysis_run_ids=[topics_run_id, sentiment_run_id],
+        output_path=str(output_path),
+    )
+
+    written_df = pd.read_csv(output_path)
+    for provenance_column in (
+        "sentiment_analysis_run_id", "sentiment_model_name", "sentiment_model_revision",
+        "topics_analysis_run_id", "topics_model_name", "topics_model_revision",
+    ):
+        assert provenance_column not in written_df.columns
+
+
+def test_export_with_settings_stamps_provenance_columns_on_every_row(tmp_path: Path) -> None:
+    """With `settings` given, every exported row must be traceable to the exact
+    `analysis_run_id`/model+revision that produced it -- closes the gap
+    `docs/implementation/V1.0_RESEARCH_READINESS_AUDIT.md` section 6 found: a reviewer could not
+    previously determine which model/run produced a given CSV row without manually
+    cross-referencing a separate `provenance.json`."""
+    base_root = tmp_path / "runs"
+    collection_run_id = "cr-3"
+    topics_run_id = "ar-topics-3"
+    sentiment_run_id = "ar-sentiment-3"
+    _write_fixture(
+        base_root, collection_run_id=collection_run_id,
+        topics_run_id=topics_run_id, sentiment_run_id=sentiment_run_id,
+    )
+    settings = _FakeSettings(
+        topics_model=ModelReference(name="paraphrase-multilingual-MiniLM-L12-v2", revision="e8f8c21"),
+        sentiment_model=ModelReference(name="bert-base-turkish-sentiment-cased", revision="f607086"),
+    )
+
+    adapter = MasterTableExportAdapter(base_root=base_root, settings=settings)
+    output_path = tmp_path / "export.csv"
+    row_count = adapter.export(
+        collection_run_id=collection_run_id,
+        analysis_run_ids=[topics_run_id, sentiment_run_id],
+        output_path=str(output_path),
+    )
+
+    written_df = pd.read_csv(output_path)
+    assert row_count == len(written_df) == 2
+    assert (written_df["topics_analysis_run_id"] == topics_run_id).all()
+    assert (written_df["topics_model_name"] == "paraphrase-multilingual-MiniLM-L12-v2").all()
+    assert (written_df["topics_model_revision"] == "e8f8c21").all()
+    assert (written_df["sentiment_analysis_run_id"] == sentiment_run_id).all()
+    assert (written_df["sentiment_model_name"] == "bert-base-turkish-sentiment-cased").all()
+    assert (written_df["sentiment_model_revision"] == "f607086").all()
 
 
 def test_export_raises_file_not_found_when_sentiment_output_missing(tmp_path: Path) -> None:

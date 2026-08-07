@@ -184,6 +184,51 @@ class TestBuildMasterTable:
         assert len(new) == 17566
 
 
+    def test_provenance_columns_omitted_by_default(self, tmp_path):
+        """V1.0 Research Readiness freeze (docs/implementation/V1.0_RESEARCH_READINESS_AUDIT.md
+        section 8 item 2): the new provenance kwargs are opt-in and must not change the column
+        set when omitted, so `test_join_shape_and_columns` above stays valid unmodified."""
+        comments_path, topics_path, sentiment_path = _write_synthetic_sources(tmp_path)
+        master = build_master_table(
+            comments_path=comments_path, topics_path=topics_path, sentiment_path=sentiment_path,
+        )
+        for col in (
+            "sentiment_analysis_run_id", "sentiment_model_name", "sentiment_model_revision",
+            "topics_analysis_run_id", "topics_model_name", "topics_model_revision",
+        ):
+            assert col not in master.columns
+
+    def test_provenance_columns_added_when_given_and_constant_across_rows(self, tmp_path):
+        comments_path, topics_path, sentiment_path = _write_synthetic_sources(tmp_path)
+        master = build_master_table(
+            comments_path=comments_path, topics_path=topics_path, sentiment_path=sentiment_path,
+            topics_analysis_run_id="ar-topics-1",
+            topics_model_name="paraphrase-multilingual-MiniLM-L12-v2",
+            topics_model_revision="e8f8c21",
+            sentiment_analysis_run_id="ar-sentiment-1",
+            sentiment_model_name="bert-base-turkish-sentiment-cased",
+            sentiment_model_revision="f607086",
+        )
+        assert (master["topics_analysis_run_id"] == "ar-topics-1").all()
+        assert (master["topics_model_name"] == "paraphrase-multilingual-MiniLM-L12-v2").all()
+        assert (master["topics_model_revision"] == "e8f8c21").all()
+        assert (master["sentiment_analysis_run_id"] == "ar-sentiment-1").all()
+        assert (master["sentiment_model_name"] == "bert-base-turkish-sentiment-cased").all()
+        assert (master["sentiment_model_revision"] == "f607086").all()
+
+    def test_provenance_columns_partial_subset_only_adds_given_ones(self, tmp_path):
+        """Callers that only know some of the six values (e.g. a run_id but not a model name)
+        must be able to pass just those -- not all-or-nothing."""
+        comments_path, topics_path, sentiment_path = _write_synthetic_sources(tmp_path)
+        master = build_master_table(
+            comments_path=comments_path, topics_path=topics_path, sentiment_path=sentiment_path,
+            sentiment_analysis_run_id="ar-sentiment-1",
+        )
+        assert "sentiment_analysis_run_id" in master.columns
+        assert "sentiment_model_name" not in master.columns
+        assert "topics_analysis_run_id" not in master.columns
+
+
 class TestSaveMasterTable:
     def test_round_trips_without_a_bom(self, tmp_path):
         """save_master_table must write plain UTF-8, not utf-8-sig: a BOM
