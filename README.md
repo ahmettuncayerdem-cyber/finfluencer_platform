@@ -90,7 +90,11 @@ src/finfluencer/
     reporting/    statistics, manuscript export, and the reporting CLI (analyze/report/validate/export)
 ```
 
-For the full module inventory, dependency graph, and product roadmap, see [`Software_Product_Architecture_v1.0.md`](Software_Product_Architecture_v1.0.md).
+For the full module inventory, dependency graph, and product roadmap, see
+[`docs/product/PRODUCT_ARCHITECTURE.md`](docs/product/PRODUCT_ARCHITECTURE.md) (the current
+canonical architecture reference; the earlier `Software_Product_Architecture_v1.0.md` this link
+used to point to predates the Sprint 0-4/T-029 build and is archived at
+[`docs/history/root-legacy/`](docs/history/root-legacy/) for historical reference only).
 
 ## Testing
 

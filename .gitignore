@@ -42,3 +42,26 @@ logs/
 # Ad-hoc / transient (not part of any release deliverable)
 .~lock.*#
 /err.txt
+*.bak
+
+# Research/manuscript working files (analysis scripts, result exports, gold-standard/
+# adjudication samples, raw CI-log dumps) -- real research artifacts, but not application
+# source and not meant to be version-controlled here. Kept out of the repo working tree
+# entirely (research_archive/, added V1.0 Research Readiness freeze, 2026-08-07) rather than
+# silently ignored in place, so this section only guards against a *new* one of these
+# reappearing at repo root by accident.
+/research_archive/
+*_results.json
+*_results_*.json
+pytest_output*.txt
+mypy_sprint*.txt
+ruff_sprint*.txt
+adjudication_*.csv
+gold_sample_*.csv
+gold_standard_sample_*.csv
+gold_standard_sample_*.xlsx
+manuscript_*.csv
+e7_*.csv
+e7_*.xlsx
+e7_*.json
+finfluencer_tr_2025_*.xlsx

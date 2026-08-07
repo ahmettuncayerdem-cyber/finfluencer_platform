@@ -3,8 +3,7 @@ finfluencer — A reusable computational research platform for empirical studies
 of financial YouTube communities, retail investor behaviour, and finfluencer
 discourse.
 
-See Software_Product_Architecture_v1.0.md (repository root) for the module
-inventory and dependency graph.
+See docs/product/PRODUCT_ARCHITECTURE.md for the module inventory and dependency graph.
 
 The `__version__` attribute is the ONLY value below that end users should
 depend on before the public API stabilises. Additional public exports will
