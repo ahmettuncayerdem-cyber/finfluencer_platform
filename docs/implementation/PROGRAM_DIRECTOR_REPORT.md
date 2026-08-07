@@ -1281,3 +1281,84 @@ collection/analysis work cannot be resumed — no Persistence Layer exists yet, 
 already-documented Sprint 0 characteristic, not a new gap). This time PDF export should complete
 in seconds, letting the full `T-029 LIVE MVP SIGN-OFF: N/N checks passed` summary print for the
 first time.
+
+---
+
+## Delta — T-029 Live MVP Sign-off Achieved: 16/16 Checks Passed (2026-08-07)
+
+**Outcome.** `poetry run python t029_live_verification.py`, run by the operator on their own
+machine, completed with **`T-029 LIVE MVP SIGN-OFF: 16/16 checks passed, 0 failed`**. This is the
+literal, once-performed, live event `BACKLOG.md` T-029's own Role line ("Human sign-off") and
+Verification line ("the end-to-end run itself, performed once, live") require — the single
+remaining gate to MVP declaration for this engagement, now cleared. Evidence chain, read directly
+from the run's own structured log output rather than summarized from memory: real Project
+created; real YouTube collection across the full four-analyst roster; real BERTopic topic
+modeling (160 topics, 35,108 rows); real transformer-based sentiment analysis (17,554 rows,
+`gecer`/`satiroglu`/`yesilada` timings all consistent with every prior successful run this
+session — no anomaly this pass); a Report citing both AnalysisRuns (`citation_count: 2`);
+finalize (`status: finalized`); a real CSV/table export (17,554 rows, 4,844,840 bytes,
+`X-Row-Count` header matching the row count); a real PDF export (content starts with the literal
+bytes `%PDF-1.4`, 5,018 bytes — the bounded-preview fix from the immediately preceding delta
+holding up under the real run it was built for). No AI/LLM call anywhere in this path — topic
+modeling and sentiment classification are both statistical/ML inference over already-collected
+raw text, exactly as T-029's acceptance criterion requires.
+
+**Two unexplained anomalies preceded this successful run, investigated but not fully
+root-caused.** Two prior attempts at the same live run terminated abnormally at the same
+transition point — end of sentiment preprocessing, start of the transformer classifier's first
+analyst (`basaran`) — with no shared cause pinned down despite a genuine investigation:
+- **Attempt 1:** appeared to stall for several hours (Task Manager showed `python.exe` still
+  consuming CPU, no forward progress). Operator-initiated `Ctrl+C` produced a traceback showing
+  only that the main thread was blocked waiting on the background worker thread `TestClient`
+  bridges requests through (`anyio`'s `from_thread` machinery) — informative about *where the
+  interrupt landed*, not about where the actual request-handling thread was stuck, since `SIGINT`
+  in Python only interrupts the main thread by default.
+- **Attempt 2:** exited silently — exit code 1, no traceback, no `[PASS]`/`[FAIL]` summary block.
+  Reading `t029_live_verification.py`'s own `main()` (lines 55–174) confirms there is no bare
+  `except` anywhere in it: every code path either prints the full summary block before returning,
+  or lets an unhandled exception print Python's normal traceback. Neither happened, which rules
+  out this exit having come from the script's own Python-level logic. Reading the actual call
+  chain the hang point sits in (`sentiment/pipeline.py` → `infrastructure/analysis/
+  sentiment_adapter.py` → `real_sentiment_engine.py` → `application/orchestrators/
+  start_analysis_run.py` → `api/routes/analysis.py`) found nothing past the last logged event
+  (`sentiment_stage_summary`) that should plausibly take more than milliseconds — no lock, no
+  network call, no loop — which argues against a code-level deadlock in this repository's own
+  logic as the mechanism, though this is an absence-of-evidence argument, not a positive one.
+  Windows Event Viewer's Application log was checked (filtered to Error/Critical level) across
+  both failure windows and shows **no entry at either timestamp**, which rules out an
+  OS-caught native crash (e.g., an access-violation in a PyTorch/transformers DLL) as the
+  mechanism — Windows Error Reporting reliably logs those. Windows Defender's operational log was
+  the next planned check when the operator instead re-ran the script (on stable wall power) and
+  it completed cleanly.
+
+**Working correlation, not a confirmed cause:** both failed attempts coincided with the laptop
+running on battery, which discharged from ~71% to ~13% over the course of the session; the
+successful run happened on the very next attempt, on wall power, with zero code or config change
+in between. This is consistent with a power-management-related interruption (aggressive sleep/
+throttle/suspend behavior under low battery) rather than a defect in this repository's own code —
+but it is a correlation from two data points, not a proven mechanism, and is recorded as such
+rather than overclaimed.
+
+**Engineering Gate:** not invoked — no code or config change was made in pursuit of this
+anomaly. Per the Gate's own test, the evidence available did not establish a code-related root
+cause (the opposite: the two strongest pieces of evidence gathered — Event Viewer's silence and
+the correlation with battery state — both point away from this repository's code), so no patch
+was written against a guess. This is the correct outcome under this engagement's standing
+discipline of root-causing from literal evidence before touching code, not a gap in the response.
+
+**Repository state changed:** `docs/implementation/BACKLOG.md` (T-029 marked CLOSED with this
+run's evidence, the unexplained-anomaly caveat recorded non-blocking),
+`docs/implementation/RELEASE_BLOCKING_ASSESSMENT.md` (Release Readiness Matrix's conditional
+"+ All 7 Release blockers resolved, literal T-029 re-run signed off" row marked as the current
+actual state rather than a hypothetical future one).
+
+**What becomes actionable next:** MVP is now declarable per Roadmap §6's own definition — every
+Release blocker (§2 of `RELEASE_BLOCKING_ASSESSMENT.md`) resolved, and the literal T-029 live
+sign-off complete. `RELEASE_BLOCKING_ASSESSMENT.md` §4's own readiness matrix already states what
+this does and does not unlock: a research demo (real data) is now a "Go"; `T-030` is technically
+unblocked but this assessment's own standing recommendation is to build the Persistence Layer
+first (item 8) before starting real Identity, since a registration flow whose registrations
+vanish on restart is not a credible feature to build against. The unexplained sentiment-stage
+anomaly is left as a lightweight, non-blocking follow-up — a `py-spy`-instrumented rerun (dumping
+all threads' stacks, not just the interrupted main thread) would be the next diagnostic step were
+it to recur.

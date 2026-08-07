@@ -228,8 +228,8 @@ reconciliation with §6's fuller definition before a real v1.0 claim.
 
 | Completed work | Continue Sprint 5? | Internal demo? | Research demo (real data)? | Production release? |
 |---|---|---|---|---|
-| **Nothing beyond today (T-029 implementation-side only)** | **No-Go** — `T-030` depends in practice on Persistence (finding, §0/item 8), not yet built | **Go** — proven this session, 31/31 checks, fixture/demo data | **No-Go** — 7 Release blockers open | **No-Go** |
-| **+ All 7 Release blockers resolved (§2), literal T-029 re-run signed off (RR-09)** | **Conditional Go** — technically unblocked, but Persistence still recommended first (item 8) | **Go** | **Go** | **No-Go** — Sprint 5/Persistence/Production-only items still open |
+| Nothing beyond 2026-08-03 (T-029 implementation-side only) — *historical, superseded below* | No-Go — `T-030` depends in practice on Persistence (finding, §0/item 8), not yet built | Go — proven this session, 31/31 checks, fixture/demo data | No-Go — 7 Release blockers open | No-Go |
+| **+ All 7 Release blockers resolved (§2), literal T-029 re-run signed off (RR-09) — CURRENT STATE, 2026-08-07: `t029_live_verification.py` printed `16/16 checks passed, 0 failed` on a real, operator-run, live end-to-end pass (see `BACKLOG.md` T-029, `PROGRAM_DIRECTOR_REPORT.md`)** | **Conditional Go** — technically unblocked, but Persistence still recommended first (item 8) | **Go** | **Go** | **No-Go** — Sprint 5/Persistence/Production-only items still open |
 | **+ Sprint 5 (`T-030`/`031`/`032`) complete** | N/A — Sprint 5 itself now done | **Go** | **Go** | **No-Go** — Production-only prerequisites (§3) still open |
 | **+ Persistence Layer (RR-06/07/08) in real use** | N/A | **Go** | **Go**, now durable across sessions | **Conditional Go** — remaining items are the rest of §3's checklist |
 | **+ All items in §3 Production Readiness Checklist resolved or explicitly waived** | N/A | **Go** | **Go** | **Go** — meets this document's own Release Candidate Definition (§4) |

@@ -679,9 +679,36 @@ session's, ran under `PYTHONPATH=src` against this sandbox's Python 3.10.12 — 
 `pyproject.toml`-declared `>=3.11` install path (T-002/T-003, still open) — so "another developer
 can clone and run this" remains unproven, not merely unverified.
 
-**Not marked CLOSED.** This task's own Role line requires the operator's direct participation;
-declaring it done from this session alone would overstate what a fixture/demo-backed
-verification pass can prove.
+**CLOSED, 2026-08-07 — literal acceptance criterion met by a real, live, operator-performed run.**
+All three items from the "what remains" list above are now resolved: (1) real YouTube network
+collection succeeded (all four analysts, full roster); (2) `StartAnalysisRun` dispatched to the
+real `TopicsAnalysisAdapter`/`SentimentAnalysisAdapter` (Release Blocker #6 resolved this
+engagement, ARB-01's TD-03/TD-04 closed); (3) the human, live, once-performed run itself —
+`t029_live_verification.py`, run by the operator on their own machine against real collected
+data, printed **`T-029 LIVE MVP SIGN-OFF: 16/16 checks passed, 0 failed`**: real Project created,
+real YouTube collection (four analysts), real BERTopic topic modeling, real transformer
+sentiment analysis, a Report citing both AnalysisRuns (2 citations), finalize, a real CSV/table
+export (17,554 rows, 4,844,840 bytes), and a real PDF export (`%PDF`-prefixed, 5,018 bytes) — no
+AI/LLM call anywhere in the path. Two real production defects were found and fixed en route
+(unfilled HuggingFace revision placeholders; PDF renderer never exercised against real-scale
+content) — both documented in `PROGRAM_DIRECTOR_REPORT.md`'s own deltas. The Python-3.10-sandbox
+caveat from the 2026-08-03 audit no longer applies to this run specifically: this pass executed
+on the operator's own Windows machine under the `pyproject.toml`-declared install path, not the
+sandbox.
+
+**Known, currently unexplained anomaly — flagged, not blocking.** Two earlier attempts at this
+same live run terminated abnormally partway through the sentiment-analysis stage: one appeared to
+stall for several hours before an operator-initiated interrupt; the next exited silently (code 1,
+no traceback, no summary block) at the same transition point (end of preprocessing, start of the
+transformer classifier's first analyst). Windows Event Viewer's Application log shows no
+Error/Critical entry at either failure's timestamp, which rules out an OS-caught native crash as
+the mechanism. Both anomalies coincided with the operator's laptop running on battery, discharging
+from ~71% to ~13% across the session; the successful 16/16 run happened on the immediately
+following attempt, on wall power, with no code change in between — consistent with (but not
+proven to be) a power-management-related interruption rather than a code defect. Not re-opened as
+a blocking item here because it did not reproduce on a stable-power run and T-029's own literal
+criterion has now been met; worth a lightweight follow-up (e.g., a `py-spy`-instrumented rerun)
+if it recurs.
 
 ---
 
