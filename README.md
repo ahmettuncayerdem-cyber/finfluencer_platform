@@ -4,6 +4,13 @@ A reusable computational research platform for empirical studies of financial Yo
 
 License: [MIT](LICENSE). See [`CITATION.cff`](CITATION.cff) if you use this platform in academic work.
 
+**Running your own study?** Start at
+[`docs/research/QUICKSTART.md`](docs/research/QUICKSTART.md) — it walks through the actual,
+proven, product-visible workflow (create a Project, collect real YouTube data, run topic and
+sentiment analysis, export a citable Report) rather than the lower-level pipeline this README
+documents below. See [`docs/research/OUTPUT_CODEBOOK.md`](docs/research/OUTPUT_CODEBOOK.md) for
+what the exported columns/files actually mean.
+
 ---
 
 ## Requirements
