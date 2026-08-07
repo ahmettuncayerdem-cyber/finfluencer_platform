@@ -460,6 +460,60 @@ what is already fully specified above.
 
 ---
 
+## Addendum — Smoke Test Sign-off: 19/19 Checks Passed (2026-08-07)
+
+Executed on the operator's own Windows machine (`gaza_pilot_smoke_test.py`, real
+`YT_API_KEY`/`ANON_SALT` for the dedicated Gaza Google Cloud project, never handled by this
+seat) against the isolated `config/settings.gaza_pilot.yaml`/`config/analysts.gaza_pilot.yaml`
+(BBC News only, 2 videos, 50-comment cap):
+
+**GAZA PILOT SMOKE TEST: 19/19 checks passed, 0 failed**
+
+First attempt (checks 1 through 3c) passed cleanly — real collection (68 comments), real
+English preprocessing (63 kept), real embeddings, real BERTopic in both `pooled` and
+`within_analyst` configurations (topic_count=6, non-degenerate). Check 4a then failed with a
+real `OSError`: the newly pinned `cardiffnlp/twitter-roberta-base-sentiment-latest` has no
+`model.safetensors` file on the Hub, but `TransformerSentimentClassifier` had
+`use_safetensors=True` hardcoded — a deliberate 2026-07-14 fix for a different, previously
+real, reproduced Windows crash (WinError 1114 loading `torch/lib/c10.dll`) when loading legacy
+pickle checkpoints on this environment.
+
+**Root-caused, not patched blind** (see `BACKLOG.md`-style discipline applied here too):
+confirmed via the Hub's own API that no safetensors file or auto-conversion branch exists for
+this checkpoint, and that the same is true of the secondary candidate (`siebert/sentiment-
+roberta-large-english`) — an older-checkpoint-family pattern, not specific to this one model.
+`ModelReference` gained a `use_safetensors: bool = True` field (default preserves the Turkish
+study's already-proven-safe behavior exactly; 154/154 targeted tests confirmed this before
+handing back), and the Gaza pilot config set it `False` for cardiffnlp specifically, flagged
+explicitly as a deliberate, reversible experiment that reintroduces the legacy pickle-loading
+path — **not verified from this seat's sandbox** (Linux, and confirmed no network route to
+huggingface.co there either), so it had to be tried for real on Windows.
+
+**Second attempt: full pass.** The feared WinError 1114 crash did **not** reproduce for this
+model on this machine — `use_safetensors=False` loaded `pytorch_model.bin` cleanly. Real
+evidence, not assumption: this specific crash appears tied to something more specific than "any
+legacy pickle load on this environment" (possibly the original Turkish checkpoint's own file
+layout, or a since-changed condition) — worth keeping in mind if a *future* model swap hits the
+same `OSError`, rather than assuming this result generalizes automatically.
+
+All 19 checks passed: project/collection/preprocessing/embeddings/topics (both configurations)
+/sentiment/report/citations/finalize/CSV export/provenance columns (confirmed
+`sentiment_model_name` = the new English model, not the Turkish one)/PDF export. Manual
+inspection sample: all 5 sampled comments classified `negative` — anecdotal only (n=5, and the
+sampled comments were about an unrelated weight-loss/Ozempic video topic, not Gaza-specific
+content, since this smoke test's observation window was a generic recent window, not the
+study's eventual event-anchored one) — not a calibration conclusion; the `pseudo_neutral_band`
+recalibration flagged in sec.4's config table remains open, to be assessed for real during
+Phase 4 gold-sample validation, not from this smoke test.
+
+**Status: end-to-end pipeline validation complete.** This clears the technical-validation
+condition of this report's Go/No-Go (sec. "Final Go / No-Go Recommendation") — remaining
+blockers to Phase 3's fuller Pilot Collection Plan are still the Mandatory Decision Register
+items in sec.9 (event window, ethics/reliability/privacy, D-1 sign-off now additionally
+informed by this real infra finding).
+
+---
+
 ## Sources
 
 - [cardiffnlp/twitter-roberta-base-sentiment-latest — Hugging Face](https://huggingface.co/cardiffnlp/twitter-roberta-base-sentiment-latest)
