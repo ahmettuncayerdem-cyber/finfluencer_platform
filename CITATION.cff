@@ -2,10 +2,11 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "Finfluencer Research Platform"
 version: 1.0.0
-date-released: 2026-07-26
+date-released: 2026-08-07
 authors:
-  - name: "Finfluencer Research Group"
-repository-code: "https://github.com/REPLACE-ORG/finfluencer-platform"
+  - name: "Erdem, Ahmet Tuncay"
+    email: "ahmettuncayerdem@gmail.com"
+repository-code: "https://github.com/ahmettuncayerdem-cyber/finfluencer_platform"
 license: MIT
 keywords:
   - computational-social-science

@@ -22,14 +22,14 @@
 
 [tool.poetry]
 name = "finfluencer-platform"
-version = "0.1.0"
+version = "1.0.0"
 description = "A reusable computational research platform for empirical studies of financial YouTube communities, retail investor behaviour, and finfluencer discourse. Frozen architecture v2.1."
 license = "MIT"
-authors = ["Finfluencer Research Group <replace-with-project-email@example.org>"]
+authors = ["Ahmet Tuncay Erdem <ahmettuncayerdem@gmail.com>"]
 readme = "README.md"
-homepage = "https://github.com/REPLACE-ORG/finfluencer-platform"
-repository = "https://github.com/REPLACE-ORG/finfluencer-platform"
-documentation = "https://REPLACE-ORG.github.io/finfluencer-platform"
+homepage = "https://github.com/ahmettuncayerdem-cyber/finfluencer_platform"
+repository = "https://github.com/ahmettuncayerdem-cyber/finfluencer_platform"
+documentation = "https://github.com/ahmettuncayerdem-cyber/finfluencer_platform/tree/main/docs"
 keywords = [
     "computational-social-science",
     "behavioural-finance",
@@ -43,7 +43,7 @@ keywords = [
     "reproducible-research",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
