@@ -32,12 +32,13 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from finfluencer.api.deps import (
     get_export_report_table_orchestrator,
     get_exports_root,
     get_finalize_report_orchestrator,
+    get_generate_chart_orchestrator,
     get_generate_export_orchestrator,
     get_generate_report_orchestrator,
     get_get_report_orchestrator,
@@ -47,6 +48,8 @@ from finfluencer.application.orchestrators import (
     ExportReportTableOrchestrator,
     FinalizeReportCommand,
     FinalizeReportOrchestrator,
+    GenerateChartCommand,
+    GenerateChartOrchestrator,
     GenerateExportCommand,
     GenerateExportOrchestrator,
     GenerateReportCommand,
@@ -190,4 +193,39 @@ def export_report_table(
             "Content-Disposition": f'attachment; filename="{report_id}.csv"',
             "X-Row-Count": str(result.row_count),
         },
+    )
+
+
+@router.get("/projects/{project_id}/reports/{report_id}/chart")
+def generate_chart(
+    project_id: UUID,
+    report_id: UUID,
+    chart_type: str = Query(..., pattern="^(topics|sentiment)$"),
+    orchestrator: GenerateChartOrchestrator = Depends(get_generate_chart_orchestrator),
+    exports_root: Path = Depends(get_exports_root),
+) -> Response:
+    # Deterministic, (report_id, chart_type)-keyed path -- same idempotent-file precedent
+    # `/exports` and `/table` already establish in this module.
+    output_path = exports_root / f"{report_id}-{chart_type}.png"
+    try:
+        orchestrator.execute(
+            GenerateChartCommand(
+                project_id=project_id,  # type: ignore[arg-type]
+                report_id=report_id,  # type: ignore[arg-type]
+                chart_type=chart_type,
+                output_path=str(output_path),
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        # A Report citing only one AnalysisType cannot be charted yet -- same documented
+        # limitation `/table` already carries (ChartRendererAdapter reuses build_master_table(),
+        # which requires both a topics.parquet and a sentiment.parquet).
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return Response(
+        content=output_path.read_bytes(),
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="{report_id}-{chart_type}.png"'},
     )

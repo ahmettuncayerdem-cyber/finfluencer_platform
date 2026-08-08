@@ -19,9 +19,13 @@ previously-unbuilt `FinalizeReport` command, section 11.2 line 722) and
 unused until now), rendering a finalized `Report`'s citations to PDF via `IPdfRenderer`
 (`reportlab`, ADR-0003). BACKLOG.md T-028 adds ``GetReportOrchestrator`` -- the previously-unbuilt
 `GetReport` query (section 11.2 line 723), the first pure read this package exposes on its own
-rather than as a side effect inside a larger command. Grows one module per command as each
-vertical slice needs it, not designed speculatively ahead of time. See `CONTEXT_PACK.md` for
-T-011's orchestration-sequence diagram and IG-001 walkthrough.
+rather than as a side effect inside a larger command. BACKLOG.md EPIC-10 adds
+``GenerateChartOrchestrator`` -- structurally a near-duplicate of `ExportReportTableOrchestrator`
+(same citation-to-CollectionRun resolution), rendering a chart via `IChartRenderer` instead of
+exporting a table via `ITableExporter`; constructs no Domain `Export` entity, same reasoning as
+`ExportReportTableOrchestrator`. Grows one module per command as each vertical slice needs it,
+not designed speculatively ahead of time. See `CONTEXT_PACK.md` for T-011's
+orchestration-sequence diagram and IG-001 walkthrough.
 """
 
 from __future__ import annotations
@@ -40,6 +44,11 @@ from finfluencer.application.orchestrators.finalize_report import (
     FinalizeReportCommand,
     FinalizeReportOrchestrator,
     FinalizeReportResult,
+)
+from finfluencer.application.orchestrators.generate_chart import (
+    GenerateChartCommand,
+    GenerateChartOrchestrator,
+    GenerateChartResult,
 )
 from finfluencer.application.orchestrators.generate_export import (
     GenerateExportCommand,
@@ -77,6 +86,9 @@ __all__ = [
     "FinalizeReportCommand",
     "FinalizeReportOrchestrator",
     "FinalizeReportResult",
+    "GenerateChartCommand",
+    "GenerateChartOrchestrator",
+    "GenerateChartResult",
     "GenerateExportCommand",
     "GenerateExportOrchestrator",
     "GenerateExportResult",

@@ -18,6 +18,7 @@ from finfluencer.application.orchestrators import (
     CreateProjectOrchestrator,
     ExportReportTableOrchestrator,
     FinalizeReportOrchestrator,
+    GenerateChartOrchestrator,
     GenerateExportOrchestrator,
     GenerateReportOrchestrator,
     GetReportOrchestrator,
@@ -75,6 +76,10 @@ def get_generate_export_orchestrator(request: Request) -> GenerateExportOrchestr
 
 def get_export_report_table_orchestrator(request: Request) -> ExportReportTableOrchestrator:
     return request.app.state.export_report_table_orchestrator  # type: ignore[no-any-return]
+
+
+def get_generate_chart_orchestrator(request: Request) -> GenerateChartOrchestrator:
+    return request.app.state.generate_chart_orchestrator  # type: ignore[no-any-return]
 
 
 def get_exports_root(request: Request) -> Path:

@@ -24,6 +24,23 @@ that DOES produce an `Export` (T-024, unused until now). Unlike `IResultSnapshot
 carries the already-resolved fields `GenerateExportOrchestrator` (Application) reads from each
 cited `InterpretationRecord` before calling this port -- a plain data shape, not a new business
 abstraction (Readiness Review Q6/Q8).
+
+BACKLOG.md EPIC-10 scope (2026-08-08): `IChartRenderer`, closing the gap
+`PRODUCT_ARCHITECTURE.md` section 3.1 names precisely: "Topic/Sentiment Visualization... Partial
+-- data exists, no web rendering layer." Deliberately shaped identically to `ITableExporter`
+above (same `collection_run_id`/`analysis_run_ids`/`output_path` signature, same
+filesystem-convention resolution, same "callers are responsible for the same-CollectionRun
+invariant" permissiveness) -- `ExportReportTableOrchestrator` (T-026) already resolves exactly
+this input from a Report's citations, and `GenerateChartOrchestrator` reuses that identical
+resolution logic. Not modeled as producing a Domain `Export` entity, same reasoning
+`ITableExporter` already documents: section 10.1 line 604 restricts `Export`/`ExportFormat` to
+"PDF or Word"; a rendered chart image is the same kind of read-only, non-`Export` capability
+table export already established. Readiness audit (2026-08-08) confirmed server-side rendering
+(not a JSON-data-plus-client-side-chart approach) as the correct v1 shape: no existing frontend
+framework to host a charting library in, `PRODUCT_ARCHITECTURE.md` section 13.13's own rule
+("Visualizations are rendered from backend-computed data only, never recomputed client-side"),
+and this shape reuses the exact `ITableExporter`/`IPdfRenderer` precedent rather than inventing a
+new one.
 """
 
 from __future__ import annotations
@@ -102,4 +119,37 @@ class IPdfRenderer(Protocol):
         ...
 
 
-__all__ = ["CitationSnapshot", "IPdfRenderer", "IResultSnapshotReader", "ITableExporter"]
+class IChartRenderer(Protocol):
+    """Domain- and Application-owned interface (section 12.1 line 831 pattern), applied here to
+    the "web rendering layer" gap section 3.1 names -- BACKLOG.md EPIC-10.
+    """
+
+    def render(
+        self,
+        collection_run_id: str,
+        analysis_run_ids: list[str],
+        chart_type: str,
+        output_path: str,
+    ) -> int:
+        """Build and write one chart image from `collection_run_id`'s comments and the given
+        `analysis_run_ids`' results, returning the number of bytes written.
+
+        `chart_type` selects which chart to render (`"topics"` or `"sentiment"` in v1 -- see
+        `infrastructure.reporting.chart_renderer_adapter` for the exact set this Infrastructure
+        implementation supports; this Protocol does not itself constrain the value, same
+        permissiveness `ITableExporter.export()` has toward `analysis_run_ids` pinning).
+
+        `analysis_run_ids` must all belong to `collection_run_id` -- callers are responsible for
+        that pinning (identical contract to `ITableExporter.export()`); this Protocol does not
+        itself re-verify it.
+        """
+        ...
+
+
+__all__ = [
+    "CitationSnapshot",
+    "IChartRenderer",
+    "IPdfRenderer",
+    "IResultSnapshotReader",
+    "ITableExporter",
+]

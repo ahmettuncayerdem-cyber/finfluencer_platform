@@ -114,11 +114,13 @@
     <button type="submit" name="action" value="finalize">Finalize Report</button>
     <button type="submit" name="action" value="export">Export as PDF</button>
     <button type="submit" name="action" value="table">Export as CSV table</button>
+    <button type="submit" name="action" value="chart-topics">Chart: Topics</button>
+    <button type="submit" name="action" value="chart-sentiment">Chart: Sentiment</button>
   </form>
   <p class="hint">
-    Export as PDF requires the Report to be finalized first. Export as CSV table requires two
-    AnalysisRuns of different types cited into the same Report — not achievable from this demo
-    page alone (see the note above); expect a 422 here.
+    Export as PDF requires the Report to be finalized first. Export as CSV table and both charts
+    require two AnalysisRuns of different types cited into the same Report — not achievable from
+    this demo page alone (see the note above); expect a 422 here (EPIC-10).
   </p>
   <p id="report-actions-error" class="error"></p>
 
@@ -246,9 +248,19 @@
         } else if (action === "finalize") {
           const result = await postJson(`${base}/finalize`, {});
           addStatusRow("Report", result.id, result.status, "finalized");
-        } else if (action === "export" || action === "table") {
-          const url = action === "export" ? `${base}/exports` : `${base}/table`;
-          const method = action === "export" ? "POST" : "GET";
+        } else if (action === "export" || action === "table" || action.startsWith("chart-")) {
+          let url, method, filename;
+          if (action === "export") {
+            url = `${base}/exports`; method = "POST"; filename = `${reportId}.pdf`;
+          } else if (action === "table") {
+            url = `${base}/table`; method = "GET"; filename = `${reportId}.csv`;
+          } else {
+            // "chart-topics" / "chart-sentiment" (EPIC-10) -- chart_type is everything after
+            // the first hyphen, same GET-and-download shape as the table export above.
+            const chartType = action.slice("chart-".length);
+            url = `${base}/chart?chart_type=${chartType}`; method = "GET";
+            filename = `${reportId}-${chartType}.png`;
+          }
           const response = await fetch(url, { method });
           if (!response.ok) {
             const payload = await response.json();
@@ -256,7 +268,6 @@
           }
           const blob = await response.blob();
           const objectUrl = URL.createObjectURL(blob);
-          const filename = action === "export" ? `${reportId}.pdf` : `${reportId}.csv`;
           const link = document.createElement("a");
           link.href = objectUrl;
           link.download = filename;

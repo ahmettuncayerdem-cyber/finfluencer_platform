@@ -38,6 +38,11 @@ Presentation/API wiring.** `StartAnalysisRunOrchestrator` (T-020), `GenerateRepo
 **completely unmodified** -- every one of them was already fully built and tested before this
 task; this is the first time any of them is reachable over real HTTP.
 
+**EPIC-10 (2026-08-08) adds `GenerateChartOrchestrator`**, wired identically to
+`ExportReportTableOrchestrator` (same three repositories, one new Infrastructure dependency --
+`ChartRendererAdapter` in place of `MasterTableExportAdapter`). Closes the "no web rendering
+layer" gap `PRODUCT_ARCHITECTURE.md` section 3.1 names for Topic/Sentiment Visualization.
+
 **`_DemoTopicAssignmentEngine` is a deliberate, clearly-scoped exception to "reuse existing
 Infrastructure unmodified."** It implements `IAnalysisEngine` (`domain/analysis_engine.py`) but
 is **not** `TopicsAnalysisAdapter` (T-019) and does not wrap, import, or otherwise touch it.
@@ -88,6 +93,7 @@ from finfluencer.application.orchestrators import (
     CreateProjectOrchestrator,
     ExportReportTableOrchestrator,
     FinalizeReportOrchestrator,
+    GenerateChartOrchestrator,
     GenerateExportOrchestrator,
     GenerateReportOrchestrator,
     GetReportOrchestrator,
@@ -115,6 +121,7 @@ from finfluencer.infrastructure.collection import (
     fixture_transcript_fetcher,
 )
 from finfluencer.infrastructure.reporting import (
+    ChartRendererAdapter,
     MasterTableExportAdapter,
     PdfRendererAdapter,
     ResultSnapshotAdapter,
@@ -410,6 +417,7 @@ def create_app(
     )
     result_snapshot_reader = ResultSnapshotAdapter(base_root=base_root)
     table_exporter = MasterTableExportAdapter(base_root=base_root, settings=cfg.settings)
+    chart_renderer = ChartRendererAdapter(base_root=base_root, settings=cfg.settings)
     pdf_renderer = PdfRendererAdapter()
 
     exports_root = base_root / "exports"
@@ -467,6 +475,12 @@ def create_app(
         interpretation_record_repository=interpretation_record_repository,
         analysis_run_repository=analysis_run_repository,
         table_exporter=table_exporter,
+    )
+    app.state.generate_chart_orchestrator = GenerateChartOrchestrator(
+        report_repository=report_repository,
+        interpretation_record_repository=interpretation_record_repository,
+        analysis_run_repository=analysis_run_repository,
+        chart_renderer=chart_renderer,
     )
     app.state.exports_root = exports_root
 
