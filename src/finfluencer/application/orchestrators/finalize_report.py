@@ -67,6 +67,7 @@ class FinalizeReportOrchestrator:
 
         if report.status is not ReportStatus.FINALIZED:
             report.finalize()
+            self._report_repository.save(report)
 
         return FinalizeReportResult(report_id=report.id, status=report.status.value)
 

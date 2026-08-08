@@ -43,6 +43,28 @@ instruction, 2026-08-01). A test double implementing any of these `Protocol`s (a
 `test_start_collection_run_orchestrator.py`, `test_start_analysis_run_orchestrator.py`, and
 `test_generate_report_orchestrator.py`) is an ordinary test fixture, not a Persistence-layer
 implementation -- it never touches `src/finfluencer/persistence/`.
+
+BACKLOG.md EPIC-07' (2026-08-07) adds `save()` to `ICollectionRunRepository`,
+`IAnalysisRunRepository`, and `IReportRepository`. This is a genuine, evidence-driven correction,
+not speculative growth: `ICollectionRunRepository`'s and `IReportRepository`'s own docstrings
+above (and `IAnalysisRunRepository` by the same reasoning) previously asserted that "a real
+Persistence implementation re-saving that mutated state is that implementation's own concern,
+not part of this minimal interface yet" -- but tracing every orchestrator that touches these
+three entities (`start_collection_run.py`, `start_analysis_run.py`, `generate_report.py`,
+`finalize_report.py`) shows each one calls `add()` once while the entity is in an initial state,
+then mutates the *same in-memory object* afterward (`.start()`/`.complete()`/`.fail()`,
+`.add_citation()`, `.finalize()`) with no further repository call at all. That "just works" for
+the in-memory Fake/dict-based repositories used everywhere today purely because Python object
+references are shared -- it does not work for any repository that actually serializes state to
+storage (e.g. a SQL row): the row would stay frozen at its `add()`-time state forever, even
+though every caller-visible return value looks correct. A `CollectionRun` row would show
+`status="queued"` forever; a `Report` row would never show its real citations or `finalized`
+status. Since a repository's whole job is to make state durable, this was always a real gap in
+these three interfaces, not something introduced by choosing a persistence backend -- SQLite
+persistence work (`persistence/sqlalchemy_repositories.py`) is simply what exposed it. Added as
+a strictly additive method (no existing method changed or removed); every existing in-memory
+Fake test double updated to implement it as a documented no-op, since object-reference mutation
+already keeps them correct without a real re-save.
 """
 
 from __future__ import annotations
@@ -75,11 +97,13 @@ class IProjectRepository(Protocol):
 class ICollectionRunRepository(Protocol):
     """Domain- and Application-owned interface, per section 12.1 lines 831/839 above.
 
-    Two methods only -- exactly what `StartCollectionRunOrchestrator` (T-011) needs. No
-    `update`/`delete` method: a `CollectionRun`'s in-memory state transitions
-    (`start`/`resume`/`complete`/`fail`) mutate the same object reference the orchestrator
-    already holds; a real Persistence implementation re-saving that mutated state is that
-    implementation's own concern, not part of this minimal interface yet.
+    Originally two methods -- exactly what `StartCollectionRunOrchestrator` (T-011) needs, with
+    `update`/`delete` deliberately left out because a `CollectionRun`'s in-memory state
+    transitions (`start`/`resume`/`complete`/`fail`) mutate the same object reference the
+    orchestrator already holds. EPIC-07' (2026-08-07) found that assumption does not hold for a
+    real (non-in-memory) repository -- see `save()` below and this module's header note -- and
+    added a third method, `save()`, to close the gap. Still no `delete` method: nothing in this
+    codebase deletes a CollectionRun.
     """
 
     def add(self, collection_run: CollectionRun, *, idempotency_key: str) -> None:
@@ -103,6 +127,17 @@ class ICollectionRunRepository(Protocol):
         Returns `None` on no match -- the orchestrator's signal to create a new CollectionRun.
         Section 11.2/16.10's idempotent-dispatch requirement for `StartCollectionRun` is what
         this method exists to satisfy.
+        """
+        ...
+
+    def save(self, collection_run: CollectionRun) -> None:
+        """Re-persist a CollectionRun's current state after `add()` (EPIC-07', 2026-08-07).
+
+        Called by `StartCollectionRunOrchestrator` after `.start()`/`.complete()`/`.fail()`/
+        `.resume()` mutate a CollectionRun already known to the repository (via a prior `add()`
+        or `get_by_idempotency_key()`) -- see this Protocol's own class docstring for the real
+        gap this closes. `collection_run.id` identifies which row to update; implementations
+        must overwrite the existing row, not insert a duplicate.
         """
         ...
 
@@ -149,14 +184,28 @@ class IAnalysisRunRepository(Protocol):
         """
         ...
 
+    def save(self, analysis_run: AnalysisRun) -> None:
+        """Re-persist an AnalysisRun's current state after `add()` (EPIC-07', 2026-08-07).
+
+        Called by `StartAnalysisRunOrchestrator` after `.start()`/`.complete()`/`.fail()`
+        mutate an AnalysisRun already known to the repository -- see `ICollectionRunRepository`'s
+        class docstring above and this module's own header note for the real gap this closes.
+        `analysis_run.id` identifies which row to update; implementations must overwrite the
+        existing row, not insert a duplicate (unlike `add()`, which may legitimately create a
+        new row per retry).
+        """
+        ...
+
 
 class IReportRepository(Protocol):
     """Domain- and Application-owned interface, per section 12.1 lines 831/839 above.
 
-    Two methods only -- exactly what `GenerateReportOrchestrator` (T-025) needs. No `update`
-    method: a `Report`'s in-memory state (citations, `finalize()`) mutates the same object
-    reference the orchestrator already holds, same reasoning `ICollectionRunRepository` already
-    documents for `CollectionRun`.
+    Originally two methods -- exactly what `GenerateReportOrchestrator` (T-025) needs, with
+    `update` deliberately left out because a `Report`'s in-memory state (citations,
+    `finalize()`) mutates the same object reference the orchestrator already holds. EPIC-07'
+    (2026-08-07) found that assumption does not hold for a real (non-in-memory) repository --
+    see `save()` below and this module's header note -- and added a third method, `save()`, to
+    close the gap.
     """
 
     def add(self, report: Report) -> None:
@@ -168,6 +217,19 @@ class IReportRepository(Protocol):
         cross-Project-isolation reasoning as `IAnalysisRunRepository.get_by_id`). Returns
         `None` on no match -- the orchestrator's signal that `GenerateReportCommand`'s optional
         `existing_report_id` does not resolve to a real, accessible Report.
+        """
+        ...
+
+    def save(self, report: Report) -> None:
+        """Re-persist a Report's current state after `add()` (EPIC-07', 2026-08-07).
+
+        Called by `GenerateReportOrchestrator` after `.add_citation()` and by
+        `FinalizeReportOrchestrator` after `.finalize()` mutate a Report already known to the
+        repository -- see this Protocol's own class docstring for the real gap this closes.
+        `FinalizeReportOrchestrator` in particular reads via `get_by_id()` (possibly in an
+        entirely separate request from whichever one created the Report), mutates, and must
+        call `save()` for the finalized status and citations to actually reach storage.
+        `report.id` identifies which row to update.
         """
         ...
 

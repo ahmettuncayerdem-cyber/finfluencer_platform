@@ -51,6 +51,7 @@ class FakeAnalysisRunRepository:
     def __init__(self) -> None:
         self._by_key: dict[tuple[EntityId, str], AnalysisRun] = {}
         self.add_calls = 0
+        self.save_calls = 0
 
     def add(self, analysis_run: AnalysisRun, *, idempotency_key: str) -> None:
         self.add_calls += 1
@@ -60,6 +61,12 @@ class FakeAnalysisRunRepository:
         self, project_id: EntityId, idempotency_key: str,
     ) -> AnalysisRun | None:
         return self._by_key.get((project_id, idempotency_key))
+
+    def save(self, analysis_run: AnalysisRun) -> None:
+        # Counts calls (EPIC-07') so this file's test can assert
+        # StartAnalysisRunOrchestrator re-saves after complete()/fail(); shared object
+        # reference already keeps `_by_key` correct.
+        self.save_calls += 1
 
 
 def _topics_config() -> TopicsConfig:

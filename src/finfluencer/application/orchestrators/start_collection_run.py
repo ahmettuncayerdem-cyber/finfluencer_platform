@@ -152,8 +152,10 @@ class StartCollectionRunOrchestrator:
             outcome = self._collection_engine.run(str(run.id))
         except Exception:
             run.fail()
+            self._collection_run_repository.save(run)
             raise
         run.complete()
+        self._collection_run_repository.save(run)
         return StartCollectionRunResult(
             id=run.id,
             dataset_id=run.dataset_id,

@@ -183,15 +183,20 @@ def main() -> int:
     )
 
     # ---- 10. Restart-where-applicable: fresh app instance against the SAME base_root ----
-    # In-memory repositories (Report/Export/AnalysisRun/CollectionRun/Project) do NOT
-    # survive a fresh create_app() call -- there is no Persistence Layer yet (flagged,
-    # known, carried since Sprint 0). This is expected, not a bug: it is exactly what
-    # "no Persistence Layer" means. Verified directly rather than assumed.
+    # As of BACKLOG.md EPIC-07' (2026-08-07), a real Persistence Layer exists
+    # (`persistence/sqlalchemy_repositories.py`), but it is opt-in via `create_app(db_url=...)`
+    # -- this call passes no `db_url`, so it still gets the original, non-durable in-memory
+    # `_InMemory*Repository` stand-ins (a fresh, empty set per `create_app()` call, by design;
+    # see that function's own docstring). Report/Export/AnalysisRun/CollectionRun/Project state
+    # therefore still does NOT survive this second `create_app()` call -- expected, not a bug,
+    # and no longer because "there is no Persistence Layer" (that framing is now inaccurate) but
+    # because this specific call deliberately exercises the ephemeral-by-default path. Verified
+    # directly rather than assumed.
     app2 = create_app(collection_base_root=base_root)
     client2 = TestClient(app2)
     r = client2.get(f"/projects/{project_id}/reports/{report_id}")
     check(
-        "10a. Fresh app instance (same data dir) does NOT retain in-memory Report state (expected -- no Persistence Layer)",
+        "10a. Fresh app instance, no db_url (same data dir) does NOT retain Report state (expected -- ephemeral by default)",
         r.status_code == 404,
         f"status={r.status_code} body={r.text[:200]}",
     )

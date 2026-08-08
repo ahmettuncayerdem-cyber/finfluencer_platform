@@ -119,6 +119,15 @@ from finfluencer.infrastructure.reporting import (
     PdfRendererAdapter,
     ResultSnapshotAdapter,
 )
+from finfluencer.persistence.db import build_engine, build_session_factory, create_all_tables
+from finfluencer.persistence.sqlalchemy_repositories import (
+    SQLAlchemyAnalysisRunRepository,
+    SQLAlchemyCollectionRunRepository,
+    SQLAlchemyExportRepository,
+    SQLAlchemyInterpretationRecordRepository,
+    SQLAlchemyProjectRepository,
+    SQLAlchemyReportRepository,
+)
 from finfluencer.utils.io import read_parquet, write_parquet
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -157,6 +166,13 @@ class _InMemoryCollectionRunRepository:
     ) -> CollectionRun | None:
         return self._by_key.get((dataset_id, idempotency_key))
 
+    def save(self, collection_run: CollectionRun) -> None:
+        # No-op (EPIC-07', 2026-08-07): `_by_key` already stores the same object reference
+        # `add()` received, so `.start()`/`.complete()`/`.fail()`/`.resume()` mutations are
+        # already visible without a separate write. A real (SQL-backed) repository cannot rely
+        # on this -- see `ICollectionRunRepository.save()`'s docstring for why the method exists.
+        pass
+
 
 class _InMemoryAnalysisRunRepository:
     """Sprint 0 stand-in for `IAnalysisRunRepository` (T-020/T-025) -- see module docstring."""
@@ -180,6 +196,10 @@ class _InMemoryAnalysisRunRepository:
             return None
         return run
 
+    def save(self, analysis_run: AnalysisRun) -> None:
+        # No-op (EPIC-07', 2026-08-07) -- see `_InMemoryCollectionRunRepository.save()`.
+        pass
+
 
 class _InMemoryReportRepository:
     """Sprint 0 stand-in for `IReportRepository` (T-025) -- see module docstring."""
@@ -195,6 +215,10 @@ class _InMemoryReportRepository:
         if report is None or report.project_id != project_id:
             return None
         return report
+
+    def save(self, report: Report) -> None:
+        # No-op (EPIC-07', 2026-08-07) -- see `_InMemoryCollectionRunRepository.save()`.
+        pass
 
 
 class _InMemoryInterpretationRecordRepository:
@@ -295,13 +319,15 @@ def create_app(
     collection_base_root: Path | None = None,
     anon_salt: str = "sprint0-dev-salt",
     use_live_collection: bool = False,
+    db_url: str | None = None,
 ) -> FastAPI:
-    """Build the Walking Skeleton's FastAPI app: wire Sprint 0 stand-ins, construct both
+    """Build the Walking Skeleton's FastAPI app: wire repositories, construct all
     orchestrators, register routes.
 
     `collection_base_root` defaults to a fresh temp directory per call -- there is no
-    persistence-layer decision here about where collected data should permanently live; that is
-    explicitly out of scope (ADR-0001/Persistence Layer, not yet built).
+    persistence-layer decision here about where collected *data* (parquet files) should
+    permanently live; that is still explicitly out of scope (this is EPIC-07's
+    `data_raw`/`data_processed` file tree, not `db_url` below).
 
     `use_live_collection` (T-029 MVP sign-off support, added after Release Blocker #3): opt-in
     only, default `False` -- the dev page's default wiring stays fixture-backed for exactly the
@@ -311,6 +337,23 @@ def create_app(
     already-tested live wiring unmodified; no new collection logic. Requires a real `YT_API_KEY`
     in the environment, the same as `scripts/t015_live_smoke_test.py`; raises the same
     `AuthenticationError` from `YouTubePlatformProvider.__init__` if it's missing.
+
+    `db_url` (BACKLOG.md EPIC-07', ADR-0001-A, 2026-08-07): `None` (the default) preserves every
+    prior caller's exact behavior unchanged -- the original in-memory `_InMemory*Repository`
+    stand-ins (non-durable, lost on process exit, one fresh instance per `create_app()` call).
+    This default matters for test isolation specifically: `t029_e2e_verification.py` check 10a
+    asserts two separate `create_app()` calls against the same `collection_base_root` do NOT
+    share Report state -- that assertion is about the *default* case and remains true, since no
+    `db_url` means no shared backing store either. Passing an explicit `db_url` (e.g.
+    `"sqlite:///./data/finfluencer.db"`) switches every repository that has a
+    `persistence/sqlalchemy_repositories.py` implementation to a real, durable SQLite-backed one
+    instead -- multiple `create_app()` calls with the *same* `db_url` now genuinely share state
+    (that is the point: real cross-process/cross-restart durability requires the caller to pass
+    a stable path, not the default fresh-temp-file-per-call behavior). Schema is ensured via
+    `create_all_tables()` (checkfirst, so safe against an already-Alembic-migrated database too)
+    rather than requiring the caller to have run `alembic upgrade head` first -- convenient for
+    ad-hoc/dev/test `db_url`s; a real deployment should still run Alembic migrations directly
+    (see `alembic/README.md`) so schema changes go through reviewable migration files.
     """
     cfg = load_settings(settings_path, analysts_path, validate_secrets=False)
     base_root = (
@@ -333,12 +376,25 @@ def create_app(
             anon_salt=anon_salt,
         )
 
-    project_repository = _InMemoryProjectRepository()
-    collection_run_repository = _InMemoryCollectionRunRepository()
-    analysis_run_repository = _InMemoryAnalysisRunRepository()
-    report_repository = _InMemoryReportRepository()
-    interpretation_record_repository = _InMemoryInterpretationRecordRepository()
-    export_repository = _InMemoryExportRepository()
+    if db_url is not None:
+        engine = build_engine(db_url)
+        create_all_tables(engine)
+        session_factory = build_session_factory(engine)
+        project_repository = SQLAlchemyProjectRepository(session_factory)
+        collection_run_repository = SQLAlchemyCollectionRunRepository(session_factory)
+        analysis_run_repository = SQLAlchemyAnalysisRunRepository(session_factory)
+        report_repository = SQLAlchemyReportRepository(session_factory)
+        interpretation_record_repository = SQLAlchemyInterpretationRecordRepository(
+            session_factory,
+        )
+        export_repository = SQLAlchemyExportRepository(session_factory)
+    else:
+        project_repository = _InMemoryProjectRepository()
+        collection_run_repository = _InMemoryCollectionRunRepository()
+        analysis_run_repository = _InMemoryAnalysisRunRepository()
+        report_repository = _InMemoryReportRepository()
+        interpretation_record_repository = _InMemoryInterpretationRecordRepository()
+        export_repository = _InMemoryExportRepository()
 
     demo_analysis_engine = _DemoTopicAssignmentEngine(base_root=base_root)
     # Release Blocker #6: real engines, reachable only via the two fixed ids above -- the demo

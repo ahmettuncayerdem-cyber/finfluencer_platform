@@ -177,6 +177,18 @@ reportlab = "^4.0"
 # pipeline run and refuse to proceed if the working tree is dirty in strict mode.
 gitpython = "^3.1"
 
+# ---- Persistence (EPIC-07', 2026-08-07) --------------------------------------
+# ADR-0001 (docs/adr/0001-technology-stack.md) already named SQLAlchemy 2.0 as the
+# accepted ORM; ADR-0001-A (docs/adr/0001-A-sqlite-for-v1-persistence.md) scopes the
+# *backend* to SQLite for the single-user v1 deployment (Postgres remains the
+# multi-tenant answer, introducible later by changing a connection string only --
+# the ORM models/repositories below are written dialect-agnostic for exactly that
+# reason). alembic is SQLAlchemy's own standard migration tool -- no separate
+# decision, the uncontroversial default for this ORM, same reasoning ADR-0001
+# already used for uvicorn alongside fastapi.
+sqlalchemy = "^2.0"
+alembic    = "^1.13"
+
 # ---- Optional (declared here, activated via [tool.poetry.extras]) -----------
 # Reserved for Phase 6 (Module J: LLM Integration). Never installed by default.
 openai    = { version = "^1.10", optional = true }

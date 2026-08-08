@@ -51,10 +51,15 @@ class FakeAnalysisRunRepository:
             return None
         return run
 
+    def save(self, analysis_run: AnalysisRun) -> None:
+        # No-op (EPIC-07'): shared object reference already keeps `_by_id` correct.
+        pass
+
 
 class FakeReportRepository:
     def __init__(self) -> None:
         self._by_id: dict[EntityId, Report] = {}
+        self.save_calls = 0
 
     def add(self, report: Report) -> None:
         self._by_id[report.id] = report
@@ -64,6 +69,11 @@ class FakeReportRepository:
         if report is None or report.project_id != project_id:
             return None
         return report
+
+    def save(self, report: Report) -> None:
+        # Counts calls (EPIC-07') so this file's test can assert GenerateReportOrchestrator
+        # re-saves after add_citation(); shared object reference already keeps `_by_id` correct.
+        self.save_calls += 1
 
 
 class FakeInterpretationRecordRepository:

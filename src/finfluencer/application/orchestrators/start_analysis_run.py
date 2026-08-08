@@ -143,8 +143,10 @@ class StartAnalysisRunOrchestrator:
             outcome = self._analysis_engine.run(str(run.id), str(collection_run_id))
         except Exception:
             run.fail()
+            self._analysis_run_repository.save(run)
             raise
         run.complete()
+        self._analysis_run_repository.save(run)
         return StartAnalysisRunResult(
             id=run.id,
             project_id=run.project_id,

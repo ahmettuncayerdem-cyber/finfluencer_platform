@@ -105,6 +105,10 @@ class FakeCollectionRunRepository:
     ) -> CollectionRun | None:
         return self._by_key.get((dataset_id, idempotency_key))
 
+    def save(self, collection_run: CollectionRun) -> None:
+        # No-op (EPIC-07') -- see test_t013_interruption_and_resume.py's identical double.
+        pass
+
 
 def _wait_for_record_count(records_path: Path, count: int, timeout: float) -> None:
     deadline = time.monotonic() + timeout

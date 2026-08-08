@@ -19,6 +19,7 @@ from finfluencer.domain.entities.report import Report, ReportStatus
 class FakeReportRepository:
     def __init__(self) -> None:
         self._by_id: dict[EntityId, Report] = {}
+        self.save_calls = 0
 
     def add(self, report: Report) -> None:
         self._by_id[report.id] = report
@@ -28,6 +29,11 @@ class FakeReportRepository:
         if report is None or report.project_id != project_id:
             return None
         return report
+
+    def save(self, report: Report) -> None:
+        # Counts calls (EPIC-07') so this file's test can assert FinalizeReportOrchestrator
+        # re-saves after finalize(); shared object reference already keeps `_by_id` correct.
+        self.save_calls += 1
 
 
 def _project_id() -> EntityId:

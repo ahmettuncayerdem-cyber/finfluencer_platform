@@ -47,6 +47,10 @@ class FakeAnalysisRunRepository:
             return None
         return run
 
+    def save(self, analysis_run: AnalysisRun) -> None:
+        # No-op (EPIC-07'): shared object reference already keeps `_by_id` correct.
+        pass
+
 
 class FakeReportRepository:
     def __init__(self) -> None:
@@ -60,6 +64,10 @@ class FakeReportRepository:
         if report is None or report.project_id != project_id:
             return None
         return report
+
+    def save(self, report: Report) -> None:
+        # No-op (EPIC-07'): shared object reference already keeps `_by_id` correct.
+        pass
 
 
 class FakeInterpretationRecordRepository:

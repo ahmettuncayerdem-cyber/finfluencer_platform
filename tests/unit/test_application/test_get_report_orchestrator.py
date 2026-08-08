@@ -30,6 +30,10 @@ class FakeReportRepository:
             return None
         return report
 
+    def save(self, report: Report) -> None:
+        # No-op (EPIC-07'): shared object reference already keeps `_by_id` correct.
+        pass
+
 
 def _project_id() -> EntityId:
     return EntityId(uuid.uuid4())

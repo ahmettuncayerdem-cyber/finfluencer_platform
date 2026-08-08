@@ -87,6 +87,12 @@ class FakeCollectionRunRepository:
     ) -> CollectionRun | None:
         return self._by_key.get((dataset_id, idempotency_key))
 
+    def save(self, collection_run: CollectionRun) -> None:
+        # No-op (EPIC-07'): this in-memory double stores the same object reference `add()`
+        # received, so mutations via `.start()`/`.complete()`/`.fail()`/`.resume()` are already
+        # visible through `_by_key` without a separate re-save.
+        pass
+
 
 def _wait_for_record_count(records_path: Path, count: int, timeout: float) -> None:
     deadline = time.monotonic() + timeout

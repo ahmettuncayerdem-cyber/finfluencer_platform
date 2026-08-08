@@ -50,6 +50,7 @@ class FakeCollectionRunRepository:
     def __init__(self) -> None:
         self._by_key: dict[tuple[EntityId, str], CollectionRun] = {}
         self.add_calls = 0
+        self.save_calls = 0
 
     def add(self, collection_run: CollectionRun, *, idempotency_key: str) -> None:
         self.add_calls += 1
@@ -59,6 +60,12 @@ class FakeCollectionRunRepository:
         self, dataset_id: EntityId, idempotency_key: str
     ) -> CollectionRun | None:
         return self._by_key.get((dataset_id, idempotency_key))
+
+    def save(self, collection_run: CollectionRun) -> None:
+        # No-op beyond counting (EPIC-07'): object-reference mutation already keeps `_by_key`
+        # correct; the counter lets tests assert the orchestrator calls save() at the right
+        # points without this double needing to model real persistence.
+        self.save_calls += 1
 
 
 class _CountingProvider:

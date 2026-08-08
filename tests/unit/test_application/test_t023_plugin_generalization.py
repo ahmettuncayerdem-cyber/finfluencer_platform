@@ -50,6 +50,11 @@ class _FakeAnalysisRunRepository:
     ) -> AnalysisRun | None:
         return self._by_key.get((project_id, idempotency_key))
 
+    def save(self, analysis_run: AnalysisRun) -> None:
+        # No-op (EPIC-07'): shared object reference already keeps `_by_key` correct --
+        # StartAnalysisRunOrchestrator now calls this after complete()/fail().
+        pass
+
 
 class _FakeSentimentProvider:
     key: str = "fake"

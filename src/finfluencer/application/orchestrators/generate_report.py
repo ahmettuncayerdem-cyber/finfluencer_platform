@@ -136,6 +136,7 @@ class GenerateReportOrchestrator:
             self._report_repository.add(report)
 
         report.add_citation(record)
+        self._report_repository.save(report)
 
         return GenerateReportResult(
             report_id=report.id,
